@@ -1,110 +1,96 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockDepartments } from '../../data/mock';
+import { Shield, Lock, User } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select';
+import { loginOfficer } from '../../data/mock';
 
 const OfficerLogin = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    department: ''
-  });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
-    
-    if (!formData.email || !formData.password || !formData.department) {
-      toast.error('Please fill all fields');
-      return;
+    if (email && password) {
+      const officer = loginOfficer(email, password);
+      if (officer) {
+        // Simulate session
+        localStorage.setItem('currentUser', JSON.stringify(officer));
+        toast.success(`Welcome back, ${officer.name}`);
+        navigate('/officer/dashboard');
+      } else {
+        // For demo, if not found, suggest registering
+        toast.error('Invalid credentials. If you are new, please register.');
+      }
+    } else {
+      toast.error('Please enter email and password');
     }
-
-    // Mock login - in real app would validate credentials
-    toast.success('Login successful');
-    navigate('/officer/dashboard');
   };
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center"
-      style={{ backgroundColor: 'var(--bg-surface)' }}
-    >
-      <div className="w-full max-w-md">
-        {/* Logo */}
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--bg-surface)' }}>
+      <div className="card w-full max-w-sm p-8 shadow-lg">
         <div className="text-center mb-8">
-          <div 
-            className="w-16 h-16 rounded-md mx-auto mb-4 flex items-center justify-center"
-            style={{ backgroundColor: 'var(--primary)' }}
-          >
-            <span className="text-3xl font-bold text-white">GG</span>
+          <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(0, 61, 130, 0.1)' }}>
+            <Shield className="w-8 h-8" style={{ color: 'var(--primary)' }} />
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>
-            GrievanceGenie
+          <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--primary)' }}>
+            Official Login
           </h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Officer Portal</p>
+          <p style={{ color: 'var(--text-secondary)' }}>
+            Access the GrievanceGenie officer portal
+          </p>
         </div>
 
-        {/* Login Form */}
-        <div className="card">
-          <h2 className="text-xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
-            Sign In
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block mb-2 font-medium" style={{ color: 'var(--text-primary)' }}>
-                Email / Username
-              </label>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Email ID
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
               <input
-                type="text"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="Enter your email"
-                className="input-field"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input-field w-full pl-10"
+                placeholder="officer@city.gov.in"
               />
             </div>
-            <div>
-              <label className="block mb-2 font-medium" style={{ color: 'var(--text-primary)' }}>
-                Password
-              </label>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Password
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
               <input
                 type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="Enter your password"
-                className="input-field"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input-field w-full pl-10"
+                placeholder="••••••••"
               />
             </div>
-            <div>
-              <label className="block mb-2 font-medium" style={{ color: 'var(--text-primary)' }}>
-                Department
-              </label>
-              <Select value={formData.department} onValueChange={(val) => setFormData({ ...formData, department: val })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockDepartments.map(dept => (
-                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <button type="submit" className="btn-primary w-full">
-              Login
-            </button>
-          </form>
-        </div>
+          </div>
+          <button
+            type="submit"
+            className="btn-primary w-full py-3 mt-2"
+          >
+            Login to Dashboard
+          </button>
+        </form>
 
-        <p className="text-center mt-6 text-sm" style={{ color: 'var(--text-secondary)' }}>
-          For authorized government personnel only
-        </p>
+        <div className="mt-6 text-center text-sm">
+          <span style={{ color: 'var(--text-secondary)' }}>New officer? </span>
+          <button 
+            onClick={() => navigate('/officer/register')}
+            className="font-semibold hover:underline"
+            style={{ color: 'var(--primary)' }}
+          >
+            Register Account
+          </button>
+        </div>
       </div>
     </div>
   );

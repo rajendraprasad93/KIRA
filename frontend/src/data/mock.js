@@ -14,6 +14,9 @@ export const mockIssues = [
   {
     id: 'GG-2025-00123',
     citizenName: 'Rajesh Kumar',
+    source: 'official', // official, social_media
+    evidenceScore: 85, // 0-100
+    isPublicIssue: true,
     category: 'drainage',
     categoryName: 'Drainage / Sewage',
     severity: 'High',
@@ -25,6 +28,7 @@ export const mockIssues = [
       'https://images.unsplash.com/photo-1582578598774-a377d4b32223?w=400'
     ],
     status: 'verifying',
+    assignedWorkerId: null,
     reportedAt: new Date('2025-01-15T10:30:00'),
     verifications: {
       yes: 4,
@@ -41,6 +45,9 @@ export const mockIssues = [
   {
     id: 'GG-2025-00122',
     citizenName: 'Priya Sharma',
+    source: 'official',
+    evidenceScore: 92,
+    isPublicIssue: true,
     category: 'roads',
     categoryName: 'Roads / Potholes',
     severity: 'Medium',
@@ -51,6 +58,7 @@ export const mockIssues = [
       'https://images.unsplash.com/photo-1580644767589-e62fa2e1b626?w=400'
     ],
     status: 'in_progress',
+    assignedWorkerId: 'w-002',
     reportedAt: new Date('2025-01-14T14:20:00'),
     verifications: {
       yes: 5,
@@ -69,6 +77,9 @@ export const mockIssues = [
   {
     id: 'GG-2025-00121',
     citizenName: 'Mohammed Ali',
+    source: 'official',
+    evidenceScore: 75,
+    isPublicIssue: true,
     category: 'garbage',
     categoryName: 'Garbage & Sanitation',
     severity: 'High',
@@ -167,6 +178,65 @@ export const mockOfficers = [
   }
 ];
 
+export const mockWorkers = [
+  {
+    id: 'w-001',
+    name: 'Raju Mechanic',
+    department: 'Water & Sanitation',
+    status: 'available', // available, busy, off_duty
+    currentTask: null,
+    phone: '+919876543210'
+  },
+  {
+    id: 'w-002',
+    name: 'Road Repair Team A',
+    department: 'Roads & Infrastructure',
+    status: 'busy',
+    currentTask: 'GG-2025-00122',
+    phone: '+919876543211'
+  },
+  {
+    id: 'w-003',
+    name: 'Sanitation Squad 4',
+    department: 'Sanitation',
+    status: 'available',
+    currentTask: null,
+    phone: '+919876543212'
+  }
+];
+
+export const mockSocialPosts = [
+  {
+    id: 'soc-001',
+    platform: 'twitter',
+    username: '@bangalore_citizen',
+    content: 'Huge water logging near Sony Signal, Koramangala. Traffic is completely stalled. #BangaloreRains',
+    imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
+    timestamp: '2 hours ago',
+    predictedCategory: 'drainage',
+    predictedLocation: 'Sony Signal, Koramangala',
+    confidence: 0.92,
+    status: 'candidate' // candidate, verified, ignored
+  },
+  {
+    id: 'soc-002',
+    platform: 'instagram',
+    username: 'city_watcher',
+    content: 'Garbage pile up in HSR Sector 2 is getting out of hand.',
+    imageUrl: 'https://images.unsplash.com/photo-1530587198088-9409aff43d4c?w=400',
+    timestamp: '5 hours ago',
+    predictedCategory: 'garbage',
+    predictedLocation: 'HSR Layout, Sector 2',
+    confidence: 0.88,
+    status: 'candidate'
+  }
+];
+
+// Helper to calculate Crowd Score
+export const getCrowdScore = (verifications) => {
+  return (verifications.yes * 2) - verifications.no;
+};
+
 // Helper function to get issues by citizen (mock)
 export const getIssuesByCitizen = (citizenName) => {
   return mockIssues.filter(issue => issue.citizenName === citizenName);
@@ -195,4 +265,24 @@ export const getStats = () => {
     }).length,
     unverified: mockIssues.filter(i => i.verifications.total === 0).length
   };
+};
+
+// Helper function to register a new officer
+export const registerOfficer = (officerData) => {
+  const newOfficer = {
+    id: `off-${String(mockOfficers.length + 1).padStart(3, '0')}`,
+    ...officerData
+  };
+  mockOfficers.push(newOfficer);
+  return newOfficer;
+};
+
+// Helper function to login an officer
+export const loginOfficer = (email, password) => {
+  // In a real app, we would verify password. Here just check email existence for demo.
+  // For 'demo' purposes, let's treat any non-empty password as valid if email doesn't exist yet, 
+  // or match email if it does.
+  const officer = mockOfficers.find(o => o.email === email);
+  if (officer) return officer;
+  return null;
 };

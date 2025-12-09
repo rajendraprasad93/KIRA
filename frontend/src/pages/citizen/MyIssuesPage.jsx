@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Filter } from 'lucide-react';
 import IssueCard from '../../components/IssueCard';
-import { mockIssues, mockCategories } from '../../data/mock';
+import { mockIssues, mockCategories, mockUser } from '../../data/mock';
 import {
   Select,
   SelectContent,
@@ -35,7 +35,7 @@ const MyIssuesPage = () => {
         <div className="container flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/citizen')}
               className="p-2 rounded-md hover:bg-gray-100 transition-colors"
             >
               <ArrowLeft className="w-6 h-6" style={{ color: 'var(--primary)' }} />
@@ -56,6 +56,35 @@ const MyIssuesPage = () => {
 
       {/* Main Content */}
       <div className="container py-8">
+        {/* Gamification / Impact Section */}
+        <div className="card mb-6 bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-100">
+           <div className="flex justify-between items-start mb-6">
+              <div>
+                 <h2 className="text-2xl font-bold text-indigo-900">Hello, {mockUser.name}</h2>
+                 <p className="text-indigo-600 font-medium">{mockUser.level} • {mockUser.points} pts</p>
+              </div>
+              <div className="text-right">
+                 <div className="text-sm text-indigo-500 uppercase tracking-wide font-semibold">Impact Score</div>
+                 <div className="text-3xl font-bold text-indigo-700">{mockUser.stats.resolved} Fixed</div>
+              </div>
+           </div>
+           
+           <h3 className="text-sm font-semibold text-indigo-400 uppercase tracking-wider mb-3">Earned Badges</h3>
+           <div className="flex gap-4 overflow-x-auto pb-2">
+              {mockUser.badges.map(badge => (
+                 <div key={badge.id} className="flex flex-col items-center bg-white p-3 rounded-lg shadow-sm border border-indigo-100 min-w-[100px]">
+                    <div className="text-3xl mb-1">{badge.icon}</div>
+                    <div className="text-xs font-bold text-gray-800 text-center">{badge.name}</div>
+                    <div className="text-[10px] text-gray-500 text-center">{badge.description}</div>
+                 </div>
+              ))}
+              <div className="flex flex-col items-center justify-center bg-indigo-100/50 p-3 rounded-lg border border-dashed border-indigo-200 min-w-[100px]">
+                 <div className="text-xl text-indigo-300 mb-1">🔒</div>
+                 <div className="text-xs font-bold text-indigo-400">Next Badge</div>
+              </div>
+           </div>
+        </div>
+
         {/* Filters */}
         <div className="card mb-6">
           <div className="flex items-center gap-3 mb-4">

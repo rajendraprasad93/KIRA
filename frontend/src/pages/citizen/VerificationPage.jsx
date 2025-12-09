@@ -151,7 +151,7 @@ const VerificationPage = () => {
                   </p>
                 </div>
                 <button
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/citizen')}
                   className="btn-primary"
                 >
                   Back to Home

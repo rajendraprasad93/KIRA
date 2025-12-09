@@ -78,12 +78,36 @@ const IssueCard = ({ issue, showViewButton = true, onClick }) => {
         </div>
       </div>
 
-      {issue.verifications && issue.verifications.total > 0 && (
-        <div className="mt-3 pt-3 border-t flex items-center gap-2">
-          <Users className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-          <span className="text-sm font-medium" style={{ color: 'var(--accent)' }}>
-            {issue.verifications.yes} of {issue.verifications.total} locals confirmed
-          </span>
+      <div className="mt-4 pt-3 border-t grid grid-cols-2 gap-2">
+         {/* Evidence Score (AI) */}
+         <div className="bg-gray-100 p-2 rounded flex flex-col items-center justify-center text-center">
+            <span className="text-xs text-gray-500 font-semibold uppercase">AI Evidence</span>
+            <span className={`text-lg font-bold ${
+              (issue.evidenceScore || 0) > 80 ? 'text-green-600' : 
+              (issue.evidenceScore || 0) > 50 ? 'text-yellow-600' : 'text-red-600'
+            }`}>
+              {issue.evidenceScore || 'N/A'}/100
+            </span>
+         </div>
+
+         {/* Crowd Score (Verification) */}
+         <div className="bg-gray-100 p-2 rounded flex flex-col items-center justify-center text-center">
+            <span className="text-xs text-gray-500 font-semibold uppercase">Crowd Score</span>
+            <div className="flex items-center gap-1">
+               <Users className="w-4 h-4 text-blue-500" />
+               <span className={`text-lg font-bold ${
+                 (issue.verifications?.yes * 2 - issue.verifications?.no) >= 5 ? 'text-green-600' :
+                 (issue.verifications?.yes * 2 - issue.verifications?.no) >= 0 ? 'text-blue-600' : 'text-red-600'
+               }`}>
+                 {issue.verifications ? (issue.verifications.yes * 2 - issue.verifications.no) : 0}
+               </span>
+            </div>
+         </div>
+      </div>
+      
+      {issue.source === 'social_media' && (
+        <div className="absolute top-2 right-2 -mr-2 -mt-2">
+           <span className="badge badge-info shadow-lg border-white border-2">Social Signal</span>
         </div>
       )}
     </div>

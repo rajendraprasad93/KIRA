@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, TrendingUp, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { mockIssues, mockCategories, getStats } from '../../data/mock';
+import { mockIssues, mockCategories, getStats, mockSocialPosts } from '../../data/mock';
 import MapComponent from '../../components/MapComponent';
 import IssueCard from '../../components/IssueCard';
 import {
@@ -14,12 +14,26 @@ import {
 
 const OfficerDashboard = () => {
   const navigate = useNavigate();
-  const stats = getStats();
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem('currentUser')));
+  const stats = getStats(); // In a real app, pass user.department to get specific stats
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all'); // Could default to user's dept category map
   const [filterVerification, setFilterVerification] = useState('all');
 
+  // Verify login
+  React.useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem('currentUser'));
+    if (!storedUser) {
+      navigate('/officer/login');
+    } else {
+      setUser(storedUser);
+    }
+  }, [navigate]);
+
   const filteredIssues = mockIssues.filter(issue => {
+    // Filter by Department First
+    if (user && issue.department !== user.department) return false;
+
     const statusMatch = filterStatus === 'all' || issue.status === filterStatus;
     const categoryMatch = filterCategory === 'all' || issue.category === filterCategory;
     let verificationMatch = true;
@@ -31,8 +45,10 @@ const OfficerDashboard = () => {
     return statusMatch && categoryMatch && verificationMatch;
   });
 
+  if (!user) return null;
+
   // Prepare map markers
-  const mapMarkers = mockIssues.map(issue => ({
+  const mapMarkers = filteredIssues.map(issue => ({
     lat: issue.coordinates.lat,
     lng: issue.coordinates.lng,
     title: issue.id,
@@ -42,29 +58,37 @@ const OfficerDashboard = () => {
   const statCards = [
     { 
       title: 'New Today', 
-      value: stats.newToday, 
+      value: filteredIssues.filter(i => {
+           const today = new Date();
+           return i.reportedAt.toDateString() === today.toDateString();
+      }).length, 
       icon: <TrendingUp className="w-6 h-6" />,
       color: 'var(--primary)'
     },
     { 
       title: 'In Verification', 
-      value: stats.verifying, 
+      value: filteredIssues.filter(i => i.status === 'verifying').length, 
       icon: <Clock className="w-6 h-6" />,
       color: 'var(--warning)'
     },
     { 
       title: 'In Progress', 
-      value: stats.inProgress, 
+      value: filteredIssues.filter(i => i.status === 'in_progress').length, 
       icon: <AlertTriangle className="w-6 h-6" />,
       color: 'var(--accent)'
     },
     { 
       title: 'Resolved This Week', 
-      value: stats.resolvedThisWeek, 
+      value: filteredIssues.filter(i => i.status === 'resolved').length, 
       icon: <CheckCircle2 className="w-6 h-6" />,
       color: 'var(--success)'
     },
   ];
+
+  const handleLogout = () => {
+    localStorage.removeItem('currentUser');
+    navigate('/officer/login');
+  };
 
   return (
     <div style={{ backgroundColor: 'var(--bg-surface)', minHeight: '100vh' }}>
@@ -76,14 +100,14 @@ const OfficerDashboard = () => {
         <div className="container flex justify-between items-center">
           <div>
             <h1 className="text-xl font-bold" style={{ color: 'var(--primary)' }}>
-              Water & Sanitation Department
+              {user.department}
             </h1>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Officer Dashboard
+              Welcome, Officer {user.name}
             </p>
           </div>
           <button
-            onClick={() => navigate('/officer/login')}
+            onClick={handleLogout}
             className="btn-secondary flex items-center gap-2"
           >
             <LogOut className="w-4 h-4" />
@@ -183,6 +207,33 @@ const OfficerDashboard = () => {
               </Select>
             </div>
           </div>
+        </div>
+
+        {/* Social Media Candidates (Link to v2 Feature 6) */}
+        <div className="mb-8">
+           <h3 className="mb-4 flex items-center gap-2 font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
+              <span className="bg-blue-100 text-blue-700 p-1 rounded">New</span> 
+              Social Media Signals
+           </h3>
+           <div className="grid md:grid-cols-2 gap-6">
+              {mockSocialPosts.map(post => (
+                 <div key={post.id} className="card border-l-4 border-blue-500">
+                    <div className="flex justify-between items-start mb-2">
+                       <span className="text-xs font-bold uppercase text-gray-400">{post.platform} • {post.timestamp}</span>
+                       <span className="badge badge-warning text-xs">{(post.confidence * 100)}% Confidence</span>
+                    </div>
+                    <p className="font-medium text-gray-800 mb-2">"{post.content}"</p>
+                    <div className="flex gap-4 text-sm text-gray-500 mb-3">
+                       <span>📍 {post.predictedLocation}</span>
+                       <span>🏷️ {post.predictedCategory}</span>
+                    </div>
+                    <div className="flex gap-2">
+                       <button className="btn-primary text-xs py-1 px-3">Verify & Add</button>
+                       <button className="btn-secondary text-xs py-1 px-3">Ignore</button>
+                    </div>
+                 </div>
+              ))}
+           </div>
         </div>
 
         {/* Issues List */}

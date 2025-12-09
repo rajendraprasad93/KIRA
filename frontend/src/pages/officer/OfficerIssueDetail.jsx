@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Users, Calendar } from 'lucide-react';
 import StatusTimeline from '../../components/StatusTimeline';
 import MapComponent from '../../components/MapComponent';
-import { mockIssues } from '../../data/mock';
+import { mockIssues, mockWorkers } from '../../data/mock';
 import { toast } from 'sonner';
 import {
   Select,
@@ -308,6 +308,41 @@ const OfficerIssueDetail = () => {
                     Mark as Resolved
                   </button>
                 </div>
+              </div>
+
+              {/* Worker Assignment (v2 Feature) */}
+              <div className="card">
+                <h3 className="mb-3" style={{ color: 'var(--text-primary)' }}>Assign Field Worker</h3>
+                <div className="mb-4">
+                  <p className="text-sm text-gray-500 mb-2">Current Worker</p>
+                  {issue.assignedWorkerId ? (
+                     <div className="flex items-center gap-2 font-semibold text-green-700 bg-green-50 p-2 rounded">
+                        <Users className="w-4 h-4" />
+                        {mockWorkers.find(w => w.id === issue.assignedWorkerId)?.name || issue.assignedWorkerId}
+                     </div>
+                  ) : (
+                     <p className="text-sm italic text-gray-400">No worker assigned</p>
+                  )}
+                </div>
+
+                <Select onValueChange={(val) => {
+                    // Start assignment mock
+                    issue.assignedWorkerId = val; // Mutate mock
+                    issue.status = 'assigned';
+                    setStatus('assigned');
+                    toast.success('Worker assigned & Status updated');
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a worker to assign" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mockWorkers.map(worker => (
+                      <SelectItem key={worker.id} value={worker.id}>
+                        {worker.name} ({worker.status})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Internal Notes */}

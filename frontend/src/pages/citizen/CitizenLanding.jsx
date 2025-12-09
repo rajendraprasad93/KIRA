@@ -56,16 +56,18 @@ const CitizenLanding = () => {
             </h1>
           </div>
           
-          <select
-            value={selectedLang}
-            onChange={(e) => setSelectedLang(e.target.value)}
-            className="px-4 py-2 border rounded-md focus:outline-none focus:border-blue-500"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            {languages.map(lang => (
-              <option key={lang.code} value={lang.code}>{lang.name}</option>
-            ))}
-          </select>
+          <div className="flex items-center gap-4">
+            <select
+              value={selectedLang}
+              onChange={(e) => setSelectedLang(e.target.value)}
+              className="px-4 py-2 border rounded-md focus:outline-none focus:border-blue-500"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {languages.map(lang => (
+                <option key={lang.code} value={lang.code}>{lang.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </header>
 
