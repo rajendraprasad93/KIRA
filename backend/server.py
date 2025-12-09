@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Query
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -29,8 +30,16 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app without a prefix
-app = FastAPI()
+# Create the FastAPI app with lifespan event handler
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: nothing to do
+    yield
+    # Shutdown: close the database client
+    await client.close()
+
+# Create the main app with lifespan handler
+app = FastAPI(lifespan=lifespan)
 
 # Mount static files for uploads
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
@@ -333,7 +342,3 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
