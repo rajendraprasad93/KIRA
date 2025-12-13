@@ -10,8 +10,8 @@ from typing import Dict, List
 logger = logging.getLogger(__name__)
 
 # Flag severity levels
-CRITICAL_FLAGS = ["AI_GENERATED", "RESUBMITTED_IMAGE", "NO_EXIF_DATA"]
-WARNING_FLAGS = ["LOCATION_NOT_AVAILABLE", "LOCATION_MISMATCH", "IMAGE_ISSUE_MISMATCH"]
+CRITICAL_FLAGS = ["AI_GENERATED", "RESUBMITTED_IMAGE", "NO_EXIF_DATA", "IMAGE_CONTENT_MISMATCH"]
+WARNING_FLAGS = ["LOCATION_NOT_AVAILABLE", "LOCATION_MISMATCH", "IMAGE_ISSUE_MISMATCH", "LOW_VISION_CONFIDENCE"]
 
 
 def make_decision(validation_results: Dict) -> Dict:
@@ -24,6 +24,7 @@ def make_decision(validation_results: Dict) -> Dict:
             - exif_data: dict from exif_service  
             - hash_match: dict from hash_service
             - issue_match: dict from issue classification (optional)
+            - vision_analysis: dict from vision_service (NEW)
             
     Returns:
         dict: Final decision with structure:
@@ -33,6 +34,7 @@ def make_decision(validation_results: Dict) -> Dict:
                 "ai_generated_score": float,
                 "exif_status": {...},
                 "hash_match": {...},
+                "vision_analysis": {...},
                 "confidence_score": float
             }
     """
@@ -44,6 +46,7 @@ def make_decision(validation_results: Dict) -> Dict:
     exif_data = validation_results.get("exif_data", {})
     hash_match = validation_results.get("hash_match", {})
     issue_match = validation_results.get("issue_match", {})
+    vision_analysis = validation_results.get("vision_analysis", {})
     
     # Check AI-generated flag (CRITICAL)
     if ai_detection.get("is_ai_generated", False):
@@ -94,6 +97,37 @@ def make_decision(validation_results: Dict) -> Dict:
             f"Warning: Image may not match issue type '{issue_match.get('expected_type')}'"
         )
     
+    # NEW: Check vision analysis results (CRITICAL if high-confidence mismatch)
+    if vision_analysis and not vision_analysis.get("skipped", False):
+        final_flag = vision_analysis.get("final_flag")
+        match_status = vision_analysis.get("issue_match_status")
+        vision_confidence = vision_analysis.get("confidence_score", 0)
+        
+        # Critical: High-confidence content mismatch (only reject if completely wrong)
+        # Only reject if it's clearly not a civic issue at all
+        if final_flag == "IMAGE_ISSUE_MISMATCH" and vision_confidence >= 95 and vision_analysis.get('issue_type_detected') == 'unknown':
+            reason_codes.append("IMAGE_CONTENT_MISMATCH")
+            status = "rejected"
+            logger.warning(
+                f"Image rejected: Vision analysis detected content mismatch "
+                f"(detected: {vision_analysis.get('issue_type_detected')}, confidence: {vision_confidence}%)"
+            )
+        
+        # Warning: Low confidence in vision analysis
+        elif vision_confidence < 50 and final_flag != "VALID_ISSUE":
+            reason_codes.append("LOW_VISION_CONFIDENCE")
+            logger.info(
+                f"Warning: Low confidence in image content analysis ({vision_confidence}%)"
+            )
+        
+        # Warning: Partial match or mismatch with lower confidence
+        elif match_status == "MISMATCH" and vision_confidence >= 60:
+            reason_codes.append("IMAGE_ISSUE_MISMATCH")
+            logger.info(
+                f"Warning: Vision detected different issue type "
+                f"(detected: {vision_analysis.get('issue_type_detected')})"
+            )
+    
     # Calculate confidence score
     confidence_score = calculate_confidence_score(validation_results, reason_codes)
     
@@ -104,6 +138,11 @@ def make_decision(validation_results: Dict) -> Dict:
         "ai_generated_score": ai_detection.get("ai_probability", 0.0),
         "exif_status": {
             "has_gps": exif_data.get("has_gps", False),
+            "gps_coordinates": exif_data.get("gps_coordinates"),
+            "gps_address": exif_data.get("gps_address"),
+            "gps_city": exif_data.get("gps_city"),
+            "gps_state": exif_data.get("gps_state"),
+            "gps_country": exif_data.get("gps_country"),
             "location_valid": exif_data.get("location_valid", False),
             "timestamp": exif_data.get("timestamp"),
             "distance_km": exif_data.get("distance_km"),
@@ -115,6 +154,18 @@ def make_decision(validation_results: Dict) -> Dict:
             "similarity_score": hash_match.get("similarity_score", 0.0),
             "original_issue_id": hash_match.get("original_issue_id"),
         },
+        "vision_analysis": {
+            "visual_summary": vision_analysis.get("visual_summary", ""),
+            "detected_objects": vision_analysis.get("detected_objects", []),
+            "issue_type_detected": vision_analysis.get("issue_type_detected", "unknown"),
+            "issue_match_status": vision_analysis.get("issue_match_status", "MISMATCH"),
+            "severity": vision_analysis.get("severity", "MEDIUM"),
+            "confidence_score": vision_analysis.get("confidence_score", 0),
+            "final_flag": vision_analysis.get("final_flag", "INSUFFICIENT_VISUAL_EVIDENCE"),
+            "reasoning": vision_analysis.get("reasoning", ""),
+            "skipped": vision_analysis.get("skipped", False),
+            "error": vision_analysis.get("error")
+        } if vision_analysis and not vision_analysis.get("skipped", False) else None,
         "confidence_score": confidence_score
     }
     
@@ -181,6 +232,16 @@ def calculate_confidence_score(validation_results: Dict, reason_codes: List[str]
     if "IMAGE_ISSUE_MISMATCH" in reason_codes:
         score -= 0.10  # 10% penalty for type mismatch
     
+    # NEW: Vision analysis penalties
+    if "IMAGE_CONTENT_MISMATCH" in reason_codes:
+        # Heavy penalty for high-confidence content mismatch
+        vision_analysis = validation_results.get("vision_analysis", {})
+        vision_confidence = vision_analysis.get("confidence_score", 70) / 100.0
+        score -= (0.6 * vision_confidence)  # Up to 60% deduction
+    
+    if "LOW_VISION_CONFIDENCE" in reason_codes:
+        score -= 0.15  # 15% penalty for unclear images
+    
     # Ensure score stays in valid range
     score = max(0.0, min(1.0, score))
     
@@ -221,7 +282,9 @@ def get_rejection_message(reason_codes: List[str]) -> str:
         "NO_EXIF_DATA": "This image does not contain EXIF metadata. Please upload a photo taken directly from your camera with location services enabled. Note: WhatsApp and social media images are not accepted.",
         "LOCATION_MISMATCH": "The GPS location in the image does not match your reported location. This may indicate the photo was taken elsewhere.",
         "LOCATION_NOT_AVAILABLE": "No GPS data found in the image. For verification, please ensure location services are enabled when taking photos.",
-        "IMAGE_ISSUE_MISMATCH": "The image content may not match the selected issue type. Please verify you've selected the correct category."
+        "IMAGE_ISSUE_MISMATCH": "The image content may not match the selected issue type. Please verify you've selected the correct category.",
+        "IMAGE_CONTENT_MISMATCH": "Our AI analysis detected that the image content does not match the reported issue type. Please upload a relevant photo or select the correct category.",
+        "LOW_VISION_CONFIDENCE": "The image quality is too low or unclear for proper analysis. Please upload a clearer photo taken in good lighting."
     }
     
     # Get messages for all reason codes

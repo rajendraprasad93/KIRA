@@ -4,12 +4,41 @@ const AIResults = ({ analysis, onSubmit, onRetake, onEdit }) => {
     if (!analysis) return null;
 
     const severityConfig = {
+        High: { color: '#EF4444', bg: '#FEF2F2', label: 'High Priority' },
+        Medium: { color: '#F59E0B', bg: '#FFFBEB', label: 'Medium Priority' },
+        Low: { color: '#10B981', bg: '#ECFDF5', label: 'Low Priority' },
         high: { color: '#EF4444', bg: '#FEF2F2', label: 'High Priority' },
         medium: { color: '#F59E0B', bg: '#FFFBEB', label: 'Medium Priority' },
         low: { color: '#10B981', bg: '#ECFDF5', label: 'Low Priority' }
     };
 
-    const config = severityConfig[analysis.severity] || severityConfig.medium;
+    const config = severityConfig[analysis.severity] || severityConfig.Medium;
+
+    const getCategoryIcon = (category) => {
+        const icons = {
+            'garbage': '🗑️',
+            'roads': '🛣️',
+            'water': '💧',
+            'drainage': '🚰',
+            'electricity': '💡',
+            'infrastructure': '🏗️',
+            'others': '⚠️'
+        };
+        return icons[category] || '📋';
+    };
+
+    const getCategoryName = (category) => {
+        const names = {
+            'garbage': 'Garbage Issue',
+            'roads': 'Road Issue',
+            'water': 'Water Issue',
+            'drainage': 'Drainage Issue',
+            'electricity': 'Electricity Issue',
+            'infrastructure': 'Infrastructure Issue',
+            'others': 'Other Issue'
+        };
+        return names[category] || 'Civic Issue';
+    };
 
     return (
         <div style={{ padding: '1.5rem', backgroundColor: '#F3F4F6', minHeight: '100vh' }}>
@@ -30,9 +59,11 @@ const AIResults = ({ analysis, onSubmit, onRetake, onEdit }) => {
             {/* Analysis Results Card */}
             <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <span style={{ fontSize: '2rem' }}>{analysis.icon}</span>
+                    <span style={{ fontSize: '2rem' }}>{getCategoryIcon(analysis.category)}</span>
                     <div style={{ flex: 1 }}>
-                        <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 'bold', color: '#111827' }}>{analysis.displayName}</h3>
+                        <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 'bold', color: '#111827' }}>
+                            {getCategoryName(analysis.category)}
+                        </h3>
                         <span style={{
                             display: 'inline-block',
                             padding: '0.25rem 0.625rem',
@@ -57,26 +88,60 @@ const AIResults = ({ analysis, onSubmit, onRetake, onEdit }) => {
                         </div>
                     </div>
 
+                    {/* Vision Analysis Details */}
+                    {analysis.detected_objects && analysis.detected_objects.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'start', gap: '0.5rem' }}>
+                            <span>👁️</span>
+                            <div>
+                                <strong>Detected:</strong> {analysis.detected_objects.join(', ')}
+                            </div>
+                        </div>
+                    )}
+
+                    {analysis.vision_reasoning && (
+                        <div style={{ 
+                            padding: '0.75rem', 
+                            backgroundColor: '#EFF6FF', 
+                            borderRadius: '0.375rem',
+                            borderLeft: '3px solid #3B82F6'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'start', gap: '0.5rem' }}>
+                                <span>🤖</span>
+                                <div>
+                                    <strong style={{ color: '#1E40AF' }}>AI Analysis:</strong><br/>
+                                    <span style={{ color: '#1E3A8A', fontSize: '0.8125rem' }}>
+                                        {analysis.vision_reasoning}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span>📍</span>
                         <div>
-                            <strong>Location:</strong> {analysis.location.lat.toFixed(4)}°N, {analysis.location.lng.toFixed(4)}°E
+                            <strong>Location:</strong> {analysis.location?.address || 
+                                `${analysis.location?.lat?.toFixed(4)}°N, ${analysis.location?.lng?.toFixed(4)}°E`}
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>⚠️</span>
-                        <div>
-                            <strong>Safety Risk:</strong> {analysis.safety_risk.replace('_', ' ')}
+                    {analysis.safety_risk && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>⚠️</span>
+                            <div>
+                                <strong>Safety Risk:</strong> {analysis.safety_risk.replace('_', ' ')}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>⏱️</span>
-                        <div>
-                            <strong>Estimated Duration:</strong> {analysis.duration_estimate.replace('_', ' ')}
+                    {analysis.duration_estimate && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>⏱️</span>
+                            <div>
+                                <strong>Estimated Duration:</strong> {analysis.duration_estimate.replace('_', ' ')}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
 

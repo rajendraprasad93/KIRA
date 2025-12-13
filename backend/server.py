@@ -15,6 +15,9 @@ import json
 import google.generativeai as genai
 import re
 
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env', override=True)
+
 from models import (
     IssueCreate, Issue, IssueStatusUpdate,
     VerificationCreate, Verification, VerificationStats,
@@ -23,11 +26,8 @@ from models import (
     ImageValidationResult, EXIFData, HashMatch
 )
 
-# Import image validation services
-from services import sightengine_service, exif_service, hash_service, decision_engine
-
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env', override=True)
+# Import image validation services (AFTER load_dotenv)
+from services import sightengine_service, exif_service, hash_service, decision_engine, vision_service
 
 # Debug: Print environment variables
 print("\n" + "="*60)
@@ -180,6 +180,30 @@ def fallback_analysis(text: str) -> dict:
         "department": department,
         "location": "Unknown Location"
     }
+
+def _map_vision_to_user_category(vision_category: str) -> str:
+    """Map vision category back to user category"""
+    mapping = {
+        "streetlight": "electricity",
+        "garbage": "garbage",
+        "pothole": "roads",
+        "water_leak": "water",
+        "sewage_overflow": "drainage",
+        "road_damage": "roads",
+        "drain_block": "drainage",
+        "public_safety_other": "others",
+        "unknown": "others"
+    }
+    return mapping.get(vision_category, "others")
+
+def _map_vision_severity(vision_severity: str) -> str:
+    """Map vision severity to user severity format"""
+    mapping = {
+        "LOW": "Low",
+        "MEDIUM": "Medium",
+        "HIGH": "High"
+    }
+    return mapping.get(vision_severity, "Medium")
 
 def fallback_conversation(user_message: str, conversation_history: List[dict]) -> dict:
     """Fallback conversation logic"""
@@ -513,14 +537,22 @@ async def validate_image(
             "original_issue_id": similar_hashes[0]["issue_id"] if similar_hashes else None
         }
         
-        # STEP 5: Issue-Image Consistency Check (Placeholder)
-        logger.info("Step 5: Issue-image consistency check")
-        # TODO: Implement proper image classification using Gemini Vision or custom model
-        # For now, using placeholder that always returns True
+        # STEP 5: Image Content Understanding & Issue Extraction (NEW - Gemini Vision)
+        logger.info("Step 5: Vision analysis - content understanding")
+        vision_analysis = vision_service.analyze_image_content(
+            image_path=str(temp_file_path),
+            user_issue_type=issue_type,
+            additional_context={
+                "latitude": latitude,
+                "longitude": longitude
+            }
+        )
+        
+        # Legacy issue_match for backward compatibility
         issue_match = {
-            "is_match": True,  # Placeholder - always pass for now
+            "is_match": vision_analysis.get("issue_match_status") == "MATCH" if not vision_analysis.get("skipped") else True,
             "expected_type": issue_type,
-            "detected_type": None  # Would be filled by vision model
+            "detected_type": vision_analysis.get("issue_type_detected") if not vision_analysis.get("skipped") else None
         }
         
         # STEP 6: Decision Engine
@@ -529,7 +561,8 @@ async def validate_image(
             "ai_detection": ai_detection,
             "exif_data": exif_data,
             "hash_match": hash_match_data,
-            "issue_match": issue_match
+            "issue_match": issue_match,
+            "vision_analysis": vision_analysis  # NEW
         }
         
         decision = decision_engine.make_decision(validation_results)
@@ -543,8 +576,34 @@ async def validate_image(
                 # Warnings present but not rejected
                 message += " Note: " + decision_engine.get_rejection_message(decision["reason_codes"])
         
-        # Add message to decision
+        # Add message and vision analysis to decision
         decision["message"] = message
+        
+        # Add extracted issue data for auto-fill (if vision analysis succeeded)
+        # Include even for rejected images so user can review and correct
+        if vision_analysis and not vision_analysis.get("skipped", False):
+            extracted_data = {
+                "category": _map_vision_to_user_category(vision_analysis.get("issue_type_detected")),
+                "severity": _map_vision_severity(vision_analysis.get("severity")),
+                "description": vision_analysis.get("visual_summary"),
+                "detected_objects": vision_analysis.get("detected_objects", []),
+                "confidence": vision_analysis.get("confidence_score", 0)
+            }
+            decision["extracted_issue_data"] = extracted_data
+            
+            # Console log for debugging
+            print("\n" + "="*60)
+            print("🎯 EXTRACTED ISSUE DATA FROM VISION ANALYSIS")
+            print("="*60)
+            print(f"Status: {decision['status']}")
+            print(f"Category: {extracted_data['category']}")
+            print(f"Severity: {extracted_data['severity']}")
+            print(f"Description: {extracted_data['description']}")
+            print(f"Objects: {extracted_data['detected_objects']}")
+            print(f"Confidence: {extracted_data['confidence']}%")
+            print("="*60 + "\n")
+        else:
+            print("\n⚠️  Vision analysis skipped - no extracted data available\n")
         
         # SAVE TO DATABASE - Store complete validation record
         try:
@@ -619,6 +678,21 @@ async def validate_image(
                     "matched_hash_id": hash_match_data.get("matched_hash_id")
                 },
                 
+                # Vision Analysis (NEW)
+                "vision": {
+                    "enabled": not vision_analysis.get("skipped", False),
+                    "visual_summary": vision_analysis.get("visual_summary"),
+                    "detected_objects": vision_analysis.get("detected_objects", []),
+                    "issue_type_detected": vision_analysis.get("issue_type_detected"),
+                    "issue_match_status": vision_analysis.get("issue_match_status"),
+                    "severity": vision_analysis.get("severity"),
+                    "confidence_score": vision_analysis.get("confidence_score", 0),
+                    "final_flag": vision_analysis.get("final_flag"),
+                    "reasoning": vision_analysis.get("reasoning"),
+                    "model": "gemini-vision",
+                    "error": vision_analysis.get("error")
+                } if vision_analysis else None,
+                
                 # Issue association (if provided)
                 "issue": {
                     "issue_id": issue_id if 'issue_id' in locals() else None,
@@ -627,7 +701,7 @@ async def validate_image(
                 
                 # Metadata
                 "metadata": {
-                    "validation_version": "1.0"
+                    "validation_version": "2.0"  # Updated to 2.0 with vision analysis
                 }
             }
             
@@ -647,6 +721,22 @@ async def validate_image(
             logger.info("Removed temporary file for rejected image")
         
         logger.info(f"Validation complete: {decision['status'].upper()}")
+        
+        # Console log the complete response for debugging
+        print("\n" + "="*60)
+        print("📤 SENDING RESPONSE TO FRONTEND")
+        print("="*60)
+        print(f"Status: {decision['status']}")
+        print(f"Confidence: {decision['confidence_score']:.2%}")
+        print(f"Reason Codes: {decision['reason_codes']}")
+        if decision.get('extracted_issue_data'):
+            print("\n✅ Extracted Issue Data:")
+            print(f"   Category: {decision['extracted_issue_data']['category']}")
+            print(f"   Severity: {decision['extracted_issue_data']['severity']}")
+            print(f"   Description: {decision['extracted_issue_data']['description'][:100]}...")
+        else:
+            print("\n⚠️  No extracted issue data (vision analysis skipped)")
+        print("="*60 + "\n")
         
         return ImageValidationResult(**decision)
         
@@ -782,11 +872,23 @@ async def upload_issue_photos(issue_id: str, photos: List[UploadFile] = File(...
                 "original_issue_id": similar_hashes[0]["issue_id"] if similar_hashes else None
             }
             
-            # Issue-Image Consistency (placeholder)
+            # Vision Analysis - Content Understanding (NEW)
+            logger.info(f"Running vision analysis for {photo.filename}")
+            vision_analysis = vision_service.analyze_image_content(
+                image_path=str(temp_file_path),
+                user_issue_type=issue_type,
+                additional_context={
+                    "latitude": user_lat,
+                    "longitude": user_lng,
+                    "issue_id": issue_id
+                }
+            )
+            
+            # Legacy issue_match for backward compatibility
             issue_match = {
-                "is_match": True,
+                "is_match": vision_analysis.get("issue_match_status") == "MATCH" if not vision_analysis.get("skipped") else True,
                 "expected_type": issue_type,
-                "detected_type": None
+                "detected_type": vision_analysis.get("issue_type_detected") if not vision_analysis.get("skipped") else None
             }
             
             # STEP 3: Decision Engine
@@ -794,7 +896,8 @@ async def upload_issue_photos(issue_id: str, photos: List[UploadFile] = File(...
                 "ai_detection": ai_detection,
                 "exif_data": exif_data,
                 "hash_match": hash_match_data,
-                "issue_match": issue_match
+                "issue_match": issue_match,
+                "vision_analysis": vision_analysis  # NEW
             }
             
             decision = decision_engine.make_decision(validation_data)

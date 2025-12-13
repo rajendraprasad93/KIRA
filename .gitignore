@@ -77,4 +77,44 @@ agenthub/agents/youtube/db
 .cache/
 
 # Mobile development
-android-sdk/ 
+android-sdk/
+
+# Documentation and test files (Vision Analysis Implementation)
+backend/README_VISION_ANALYSIS.md
+backend/VISION_INTEGRATION_SUMMARY.md
+backend/VISION_QUICK_START.md
+backend/VISION_ARCHITECTURE.md
+backend/CHANGELOG_VISION.md
+backend/IMPLEMENTATION_COMPLETE.md
+backend/test_vision_service.py
+
+# Other documentation files
+backend/README_IMAGE_AUTHENTICITY.md
+backend/README_MONGODB.md
+backend/INSTALL_DEPENDENCIES.md
+test_result.md
+contracts.md
+
+# Test files
+backend/test_*.py
+tests/
+
+# Upload directories (contains user uploaded images)
+backend/uploads/
+frontend/public/uploads/
+
+# Environment files (keep .env.example but ignore actual .env)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log 

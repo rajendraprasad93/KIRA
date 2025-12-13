@@ -152,12 +152,25 @@ class HashMatch(BaseModel):
     similarity_score: float
     original_issue_id: Optional[str] = None
 
+class VisionAnalysis(BaseModel):
+    visual_summary: str
+    detected_objects: List[str]
+    issue_type_detected: str
+    issue_match_status: str  # "MATCH" | "PARTIAL_MATCH" | "MISMATCH"
+    severity: str  # "LOW" | "MEDIUM" | "HIGH"
+    confidence_score: int  # 0-100
+    final_flag: str  # "VALID_ISSUE" | "IMAGE_ISSUE_MISMATCH" | "INSUFFICIENT_VISUAL_EVIDENCE"
+    reasoning: str
+    skipped: bool = False
+    error: Optional[str] = None
+
 class ImageValidationResult(BaseModel):
     status: str  # "accepted" | "rejected"
     reason_codes: List[str] = []
     ai_generated_score: float
     exif_status: EXIFData
     hash_match: HashMatch
+    vision_analysis: Optional[VisionAnalysis] = None
     confidence_score: float
     message: Optional[str] = None
 

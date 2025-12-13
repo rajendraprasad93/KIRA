@@ -86,8 +86,14 @@ const ImageValidationStep = ({ photoData, onValidationComplete, onRetake }) => {
                     timestamp: data.exif_status?.timestamp || null,
                     warnings: data.reason_codes || [],
                     message: data.message,
-                    full_exif: data.exif_status  // Store full EXIF for display
+                    full_exif: data.exif_status,
+                    // NEW: Extracted issue data from vision analysis
+                    extracted_data: data.extracted_issue_data || null,
+                    vision_analysis: data.vision_analysis || null
                 };
+
+                console.log('📊 Backend response:', data);
+                console.log('📊 Processed result:', result);
 
                 console.log('📊 Processed result:', result);
 
