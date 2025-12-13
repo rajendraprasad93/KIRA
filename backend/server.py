@@ -49,10 +49,60 @@ conversations: Dict[str, List[dict]] = {}
 # Create the FastAPI app with lifespan event handler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: nothing to do
+    # Startup: Test MongoDB connection
+    print("\n" + "="*60)
+    print("🚀 Starting GrievanceGenie Backend")
+    print("="*60)
+    
+    try:
+        # Test MongoDB connection
+        print(f"\n📡 Connecting to MongoDB...")
+        print(f"   URL: {mongo_url[:50]}{'...' if len(mongo_url) > 50 else ''}")
+        print(f"   Database: {os.environ.get('DB_NAME', 'grievance_genie')}")
+        
+        # Ping the database
+        await client.admin.command('ping')
+        
+        # Get server info
+        server_info = await client.server_info()
+        
+        print(f"\n✅ MongoDB Connected Successfully!")
+        print(f"   Version: {server_info.get('version', 'Unknown')}")
+        
+        # Count existing collections
+        db_name = os.environ.get('DB_NAME', 'grievance_genie')
+        collections = await db.list_collection_names()
+        if collections:
+            print(f"   Collections: {len(collections)} found")
+            for coll in collections:
+                count = await db[coll].count_documents({})
+                print(f"      - {coll}: {count} document(s)")
+        else:
+            print(f"   Collections: None (database is empty)")
+        
+        print("\n" + "="*60)
+        print("✅ Backend Ready!")
+        print("="*60)
+        print(f"📍 API: http://localhost:5000/api")
+        print(f"📍 Health: http://localhost:5000/api/health")
+        print(f"📍 Docs: http://localhost:5000/docs")
+        print("="*60 + "\n")
+        
+    except Exception as e:
+        print(f"\n❌ MongoDB Connection Failed!")
+        print(f"   Error: {str(e)}")
+        print(f"\n💡 Troubleshooting:")
+        print(f"   1. Check if MongoDB is running: net start MongoDB")
+        print(f"   2. Verify MONGO_URL in .env file")
+        print(f"   3. For Atlas: Check network access settings")
+        print("="*60 + "\n")
+    
     yield
+    
     # Shutdown: close the database client
-    await client.close()
+    print("\n🔌 Closing MongoDB connection...")
+    client.close()  # Synchronous method, no await needed
+    print("✅ Backend shutdown complete.\n")
 
 # Create the main app with lifespan handler
 app = FastAPI(lifespan=lifespan)
