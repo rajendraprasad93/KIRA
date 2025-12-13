@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Query, Request
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Query, Request, Form
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -19,11 +19,25 @@ from models import (
     IssueCreate, Issue, IssueStatusUpdate,
     VerificationCreate, Verification, VerificationStats,
     Stats, TimelineItem, ChatRequest, ChatResponse, ExtractedData,
-    AnalyzeRequest, AnalyzeResponse, AnalysisData
+    AnalyzeRequest, AnalyzeResponse, AnalysisData,
+    ImageValidationResult, EXIFData, HashMatch
 )
 
+# Import image validation services
+from services import sightengine_service, exif_service, hash_service, decision_engine
+
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / '.env', override=True)
+
+# Debug: Print environment variables
+print("\n" + "="*60)
+print("🔧 ENVIRONMENT VARIABLES CHECK")
+print("="*60)
+print(f"SIGHTENGINE_API_USER: {os.environ.get('SIGHTENGINE_API_USER')}")
+print(f"SIGHTENGINE_API_SECRET: {'***' + os.environ.get('SIGHTENGINE_API_SECRET', '')[-4:] if os.environ.get('SIGHTENGINE_API_SECRET') else 'None'}")
+print(f"AI_GENERATION_THRESHOLD: {os.environ.get('AI_GENERATION_THRESHOLD', '0.8')}")
+print("="*60 + "\n")
+
 
 # Initialize Gemini
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -393,6 +407,262 @@ async def analyze_endpoint(request: AnalyzeRequest):
             )
         )
 
+# Image Validation Endpoint
+@api_router.post("/validate-image", response_model=ImageValidationResult)
+async def validate_image(
+    image: UploadFile = File(...),
+    issue_type: str = Form(...),
+    latitude: Optional[float] = Form(None),
+    longitude: Optional[float] = Form(None)
+):
+    """
+    Validate uploaded image for authenticity and misuse detection.
+    
+    Pipeline:
+    1. File format and size validation
+    2. AI-generated image detection (Sightengine)
+    3. EXIF metadata extraction and GPS validation
+    4. Perceptual hash generation and duplicate detection
+    5. Issue-image consistency check (placeholder)
+    6. Final decision from decision engine
+    """
+    temp_file_path = None
+    
+    try:
+        # STEP 1: Validate file format and size
+        allowed_formats = os.environ.get("ALLOWED_IMAGE_FORMATS", "jpg,jpeg,png,webp").split(",")
+        max_size_mb = int(os.environ.get("MAX_IMAGE_SIZE_MB", "10"))
+        
+        # Check file extension
+        file_ext = image.filename.split(".")[-1].lower()
+        if file_ext not in allowed_formats:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid file format. Allowed formats: {', '.join(allowed_formats)}"
+            )
+        
+        # Save to temporary location
+        temp_filename = f"temp_{uuid.uuid4().hex}.{file_ext}"
+        temp_file_path = UPLOAD_DIR / temp_filename
+        
+        # Save and check file size
+        with open(temp_file_path, "wb") as buffer:
+            content = await image.read()
+            size_mb = len(content) / (1024 * 1024)
+            
+            if size_mb > max_size_mb:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File size ({size_mb:.2f}MB) exceeds limit of {max_size_mb}MB"
+                )
+            
+            buffer.write(content)
+        
+        logger.info(f"Validating image: {image.filename} ({size_mb:.2f}MB)")
+        
+        # STEP 2: AI-Generated Image Detection
+        logger.info("Step 2: AI-generated image detection")
+        ai_detection = sightengine_service.detect_ai_generated(str(temp_file_path))
+        
+        # STEP 3: EXIF Metadata Analysis
+        logger.info("Step 3: EXIF metadata extraction")
+        image_gps = exif_service.extract_gps_coordinates(str(temp_file_path))
+        image_timestamp = exif_service.extract_timestamp(str(temp_file_path))
+        camera_info = exif_service.extract_camera_info(str(temp_file_path))
+        
+        # Validate location if both GPS data and user location are available
+        location_valid = False
+        distance_km = None
+        gps_address = None
+        
+        if image_gps and latitude is not None and longitude is not None:
+            user_coords = (latitude, longitude)
+            location_valid = exif_service.validate_location(image_gps, user_coords)
+            distance_km = exif_service.calculate_distance(image_gps, user_coords)
+        
+        # Get human-readable address from GPS coordinates
+        if image_gps:
+            gps_address = exif_service.reverse_geocode(image_gps[0], image_gps[1])
+        
+        exif_data = {
+            "has_gps": image_gps is not None,
+            "gps_coordinates": {
+                "latitude": image_gps[0] if image_gps else None,
+                "longitude": image_gps[1] if image_gps else None
+            } if image_gps else None,
+            "gps_address": gps_address.get("address") if gps_address else None,
+            "gps_city": gps_address.get("city") if gps_address else None,
+            "gps_state": gps_address.get("state") if gps_address else None,
+            "gps_country": gps_address.get("country") if gps_address else None,
+            "location_valid": location_valid if image_gps else False,
+            "timestamp": image_timestamp.isoformat() if image_timestamp else None,
+            "distance_km": distance_km,
+            "camera_make": camera_info.get("camera_make"),
+            "camera_model": camera_info.get("camera_model"),
+            "max_allowed_km": float(os.environ.get("LOCATION_RADIUS_KM", "10"))
+        }
+        
+        # STEP 4: Perceptual Hash and Duplicate Detection
+        logger.info("Step 4: Perceptual hash generation and duplicate check")
+        image_phash = hash_service.generate_phash(str(temp_file_path))
+        similar_hashes = await hash_service.find_similar_hashes(image_phash)
+        
+        hash_match_data = {
+            "is_duplicate": len(similar_hashes) > 0,
+            "similarity_score": similar_hashes[0]["similarity_score"] if similar_hashes else 0.0,
+            "original_issue_id": similar_hashes[0]["issue_id"] if similar_hashes else None
+        }
+        
+        # STEP 5: Issue-Image Consistency Check (Placeholder)
+        logger.info("Step 5: Issue-image consistency check")
+        # TODO: Implement proper image classification using Gemini Vision or custom model
+        # For now, using placeholder that always returns True
+        issue_match = {
+            "is_match": True,  # Placeholder - always pass for now
+            "expected_type": issue_type,
+            "detected_type": None  # Would be filled by vision model
+        }
+        
+        # STEP 6: Decision Engine
+        logger.info("Step 6: Running decision engine")
+        validation_results = {
+            "ai_detection": ai_detection,
+            "exif_data": exif_data,
+            "hash_match": hash_match_data,
+            "issue_match": issue_match
+        }
+        
+        decision = decision_engine.make_decision(validation_results)
+        
+        # Generate user-friendly message
+        if decision["status"] == "rejected":
+            message = decision_engine.get_rejection_message(decision["reason_codes"])
+        else:
+            message = "Image validation passed successfully."
+            if decision["reason_codes"]:
+                # Warnings present but not rejected
+                message += " Note: " + decision_engine.get_rejection_message(decision["reason_codes"])
+        
+        # Add message to decision
+        decision["message"] = message
+        
+        # SAVE TO DATABASE - Store complete validation record
+        try:
+            validation_id = f"VAL-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}"
+            
+            # Prepare validation record
+            validation_record = {
+                "validation_id": validation_id,
+                "created_at": datetime.utcnow(),
+                
+                # Image info
+                "image": {
+                    "filename": image.filename,
+                    "path": str(temp_file_path) if temp_file_path else None,
+                    "url": None,  # Will be set when moved to permanent location
+                    "size_bytes": size_mb * 1024 * 1024,
+                    "format": image.content_type
+                },
+                
+                # Validation results
+                "validation": {
+                    "status": decision["status"],
+                    "confidence_score": decision["confidence_score"],
+                    "reason_codes": decision["reason_codes"],
+                    "message": decision["message"]
+                },
+                
+                # AI detection
+                "ai_detection": {
+                    "ai_probability": ai_detection.get("ai_probability", 0.0),
+                    "is_ai_generated": ai_detection.get("is_ai_generated", False),
+                    "threshold": float(os.environ.get("AI_GENERATION_THRESHOLD", "0.8")),
+                    "service": "sightengine",
+                    "skipped": ai_detection.get("skipped", False),
+                    "error": ai_detection.get("error")
+                },
+                
+                # EXIF data
+                "exif": {
+                    "has_data": exif_data.get("has_gps") or exif_data.get("camera_make") is not None,
+                    "camera": {
+                        "make": exif_data.get("camera_make"),
+                        "model": exif_data.get("camera_model")
+                    },
+                    "timestamp": image_timestamp.isoformat() if image_timestamp else None,
+                    "gps": {
+                        "has_gps": exif_data.get("has_gps", False),
+                        "coordinates": exif_data.get("gps_coordinates"),
+                        "address": {
+                            "formatted": exif_data.get("gps_address"),
+                            "city": exif_data.get("gps_city"),
+                            "state": exif_data.get("gps_state"),
+                            "country": exif_data.get("gps_country"),
+                            "postcode": None  # Can be extracted from address if needed
+                        } if exif_data.get("has_gps") else None,
+                        "location_valid": exif_data.get("location_valid", False),
+                        "distance_km": exif_data.get("distance_km"),
+                        "user_location": {
+                            "latitude": latitude,
+                            "longitude": longitude
+                        } if latitude and longitude else None
+                    } if exif_data.get("has_gps") else None
+                },
+                
+                # Hash data
+                "hash": {
+                    "perceptual_hash": hash_match_data.get("hash_value"),
+                    "algorithm": "pHash",
+                    "is_duplicate": hash_match_data.get("is_duplicate", False),
+                    "similarity_score": hash_match_data.get("similarity_score", 0),
+                    "original_issue_id": hash_match_data.get("original_issue_id"),
+                    "matched_hash_id": hash_match_data.get("matched_hash_id")
+                },
+                
+                # Issue association (if provided)
+                "issue": {
+                    "issue_id": issue_id if 'issue_id' in locals() else None,
+                    "issue_type": issue_type if 'issue_type' in locals() else None
+                },
+                
+                # Metadata
+                "metadata": {
+                    "validation_version": "1.0"
+                }
+            }
+            
+            # Insert into MongoDB
+            result = await db.image_validations.insert_one(validation_record)
+            logger.info(f"✅ Validation record saved: {validation_id} (MongoDB ID: {result.inserted_id})")
+            print(f"\n💾 Saved to database: {validation_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to save validation record to database: {str(e)}")
+            print(f"⚠️  Database save failed: {str(e)}")
+            # Don't fail the entire validation if database save fails
+        
+        # Clean up temporary file if rejected
+        if decision["status"] == "rejected" and temp_file_path and temp_file_path.exists():
+            temp_file_path.unlink()
+            logger.info("Removed temporary file for rejected image")
+        
+        logger.info(f"Validation complete: {decision['status'].upper()}")
+        
+        return ImageValidationResult(**decision)
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        if temp_file_path and temp_file_path.exists():
+            temp_file_path.unlink()
+        raise
+    except Exception as e:
+        # Clean up on error
+        if temp_file_path and temp_file_path.exists():
+            temp_file_path.unlink()
+        
+        logger.error(f"Image validation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Image validation failed: {str(e)}")
+
 # Issue Management
 @api_router.post("/issues", response_model=Issue)
 @api_router.post("/report", response_model=Issue) # Alias for compatibility
@@ -423,36 +693,188 @@ async def create_issue(issue_data: IssueCreate):
 
 @api_router.post("/issues/{issue_id}/photos")
 async def upload_issue_photos(issue_id: str, photos: List[UploadFile] = File(...)):
-    """Upload photos for an issue"""
+    """Upload photos for an issue with validation"""
     # Check if issue exists
     issue = await db.issues.find_one({"id": issue_id})
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
     
     photo_urls = []
-    backend_url = os.environ.get('BACKEND_URL', 'http://localhost:5000') # Updated port
+    validation_results = []
+    backend_url = os.environ.get('BACKEND_URL', 'http://localhost:5000')
+    
+    # Get issue details for validation
+    issue_type = issue.get("category", "others")
+    issue_coords = issue.get("coordinates", {})
+    user_lat = issue_coords.get("lat") if isinstance(issue_coords, dict) else None
+    user_lng = issue_coords.get("lng") if isinstance(issue_coords, dict) else None
     
     for photo in photos:
-        # Generate unique filename
-        file_ext = photo.filename.split('.')[-1]
-        unique_filename = f"{issue_id}_{uuid.uuid4().hex[:8]}.{file_ext}"
-        file_path = UPLOAD_DIR / unique_filename
-        
-        # Save file
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(photo.file, buffer)
-        
-        photo_url = f"{backend_url}/uploads/{unique_filename}"
-        photo_urls.append(photo_url)
+        try:
+            # STEP 1: Save to temporary location first
+            allowed_formats = os.environ.get("ALLOWED_IMAGE_FORMATS", "jpg,jpeg,png,webp").split(",")
+            file_ext = photo.filename.split(".")[-1].lower()
+            
+            if file_ext not in allowed_formats:
+                validation_results.append({
+                    "filename": photo.filename,
+                    "status": "rejected",
+                    "reason": f"Invalid format. Allowed: {', '.join(allowed_formats)}"
+                })
+                continue
+            
+            # Save temporarily
+            temp_filename = f"temp_{uuid.uuid4().hex}.{file_ext}"
+            temp_file_path = UPLOAD_DIR / temp_filename
+            
+            with open(temp_file_path, "wb") as buffer:
+                content = await photo.read()
+                size_mb = len(content) / (1024 * 1024)
+                max_size_mb = int(os.environ.get("MAX_IMAGE_SIZE_MB", "10"))
+                
+                if size_mb > max_size_mb:
+                    temp_file_path.unlink() if temp_file_path.exists() else None
+                    validation_results.append({
+                        "filename": photo.filename,
+                        "status": "rejected",
+                        "reason": f"File too large ({size_mb:.2f}MB > {max_size_mb}MB)"
+                    })
+                    continue
+                
+                buffer.write(content)
+            
+            logger.info(f"Validating photo: {photo.filename} for issue {issue_id}")
+            
+            # STEP 2: Run validation pipeline
+            # AI Detection
+            ai_detection = sightengine_service.detect_ai_generated(str(temp_file_path))
+            
+            # EXIF Analysis
+            image_gps = exif_service.extract_gps_coordinates(str(temp_file_path))
+            image_timestamp = exif_service.extract_timestamp(str(temp_file_path))
+            camera_info = exif_service.extract_camera_info(str(temp_file_path))
+            
+            location_valid = False
+            distance_km = None
+            
+            if image_gps and user_lat is not None and user_lng is not None:
+                user_coords = (user_lat, user_lng)
+                location_valid = exif_service.validate_location(image_gps, user_coords)
+                distance_km = exif_service.calculate_distance(image_gps, user_coords)
+            
+            exif_data = {
+                "has_gps": image_gps is not None,
+                "location_valid": location_valid if image_gps else False,
+                "timestamp": image_timestamp.isoformat() if image_timestamp else None,
+                "distance_km": distance_km,
+                "camera_make": camera_info.get("camera_make"),
+                "camera_model": camera_info.get("camera_model"),
+                "max_allowed_km": float(os.environ.get("LOCATION_RADIUS_KM", "10"))
+            }
+            
+            # Perceptual Hash & Duplicate Check
+            image_phash = hash_service.generate_phash(str(temp_file_path))
+            similar_hashes = await hash_service.find_similar_hashes(image_phash)
+            
+            hash_match_data = {
+                "is_duplicate": len(similar_hashes) > 0,
+                "similarity_score": similar_hashes[0]["similarity_score"] if similar_hashes else 0.0,
+                "original_issue_id": similar_hashes[0]["issue_id"] if similar_hashes else None
+            }
+            
+            # Issue-Image Consistency (placeholder)
+            issue_match = {
+                "is_match": True,
+                "expected_type": issue_type,
+                "detected_type": None
+            }
+            
+            # STEP 3: Decision Engine
+            validation_data = {
+                "ai_detection": ai_detection,
+                "exif_data": exif_data,
+                "hash_match": hash_match_data,
+                "issue_match": issue_match
+            }
+            
+            decision = decision_engine.make_decision(validation_data)
+            
+            # STEP 4: Handle decision
+            if decision["status"] == "rejected":
+                # Delete temporary file
+                temp_file_path.unlink() if temp_file_path.exists() else None
+                
+                message = decision_engine.get_rejection_message(decision["reason_codes"])
+                validation_results.append({
+                    "filename": photo.filename,
+                    "status": "rejected",
+                    "reason": message,
+                    "details": decision
+                })
+                logger.warning(f"Photo rejected: {photo.filename} - {message}")
+                continue
+            
+            # STEP 5: Photo accepted - move to permanent location
+            unique_filename = f"{issue_id}_{uuid.uuid4().hex[:8]}.{file_ext}"
+            final_file_path = UPLOAD_DIR / unique_filename
+            
+            # Rename temp file to final
+            temp_file_path.rename(final_file_path)
+            
+            photo_url = f"{backend_url}/uploads/{unique_filename}"
+            photo_urls.append(photo_url)
+            
+            # Store hash for future duplicate detection
+            await hash_service.store_hash(
+                issue_id=issue_id,
+                phash=image_phash,
+                image_path=str(final_file_path),
+                status="pending"  # Will be updated to 'resolved' when issue is resolved
+            )
+            
+            validation_results.append({
+                "filename": photo.filename,
+                "status": "accepted",
+                "url": photo_url,
+                "confidence_score": decision["confidence_score"],
+                "warnings": decision["reason_codes"] if decision["reason_codes"] else []
+            })
+            
+            logger.info(f"Photo accepted: {photo.filename} - Confidence: {decision['confidence_score']:.2%}")
+            
+        except Exception as e:
+            logger.error(f"Error processing photo {photo.filename}: {str(e)}")
+            validation_results.append({
+                "filename": photo.filename,
+                "status": "error",
+                "reason": str(e)
+            })
     
-    # Update issue with photo URLs
-    await db.issues.update_one(
-        {"id": issue_id},
-        {"$push": {"photos": {"$each": photo_urls}}}
+    # Update issue with accepted photo URLs only
+    if photo_urls:
+        await db.issues.update_one(
+            {"id": issue_id},
+            {"$push": {"photos": {"$each": photo_urls}}}
+        )
+    
+    # Return comprehensive results
+    accepted_count = len([r for r in validation_results if r["status"] == "accepted"])
+    rejected_count = len([r for r in validation_results if r["status"] == "rejected"])
+    
+    logger.info(
+        f"Photo upload complete for issue {issue_id}: "
+        f"{accepted_count} accepted, {rejected_count} rejected"
     )
     
-    logger.info(f"Uploaded {len(photo_urls)} photos for issue {issue_id}")
-    return {"photos": photo_urls}
+    return {
+        "photos": photo_urls,
+        "validation_results": validation_results,
+        "summary": {
+            "total": len(validation_results),
+            "accepted": accepted_count,
+            "rejected": rejected_count
+        }
+    }
 
 @api_router.get("/issues", response_model=List[Issue])
 async def get_issues(
@@ -554,6 +976,11 @@ async def update_issue_status(issue_id: str, update_data: IssueStatusUpdate):
                 }
             }
         )
+    
+    # Update hash status if issue is being resolved
+    if update_data.status == "resolved":
+        await hash_service.update_hash_status(issue_id, "resolved")
+        logger.info(f"Updated hash status to 'resolved' for issue {issue_id}")
     
     # Get updated issue
     updated_issue = await db.issues.find_one({"id": issue_id})

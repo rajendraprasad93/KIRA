@@ -8,33 +8,45 @@ import AIResults from '../../components/ReportIssue/AIResults';
 import VoiceRecorder from '../../components/ReportIssue/VoiceRecorder';
 import PinDropMap from '../../components/ReportIssue/PinDropMap';
 import ManualForm from '../../components/ReportIssue/ManualForm';
+import ImageValidationStep from '../../components/ReportIssue/ImageValidationStep';
 
 const ReportIssuePage = () => {
     const navigate = useNavigate();
     const { location, error: gpsError } = useGPS();
     
-    const [currentStep, setCurrentStep] = useState('camera'); // 'camera' | 'ai_processing' | 'ai_results' | 'voice' | 'manual' | 'success'
+    const [currentStep, setCurrentStep] = useState('camera'); // 'camera' | 'validation' | 'ai_processing' | 'ai_results' | 'voice' | 'manual' | 'success'
     const [capturedPhoto, setCapturedPhoto] = useState(null);
+    const [validationResult, setValidationResult] = useState(null);
     const [aiAnalysis, setAiAnalysis] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [submittedComplaint, setSubmittedComplaint] = useState(null);
 
     const handlePhotoCapture = async (photoData) => {
         setCapturedPhoto(photoData);
-        setCurrentStep('ai_processing');
-        setIsProcessing(true);
+        // Go to validation step first
+        setCurrentStep('validation');
+    };
 
-        try {
-            // Simulate AI analysis
-            const analysis = await analyzeImage(photoData, location);
-            setAiAnalysis(analysis);
-            setCurrentStep('ai_results');
-        } catch (error) {
-            console.error('AI Analysis failed:', error);
-            // Fallback to manual form
-            setCurrentStep('manual');
-        } finally {
-            setIsProcessing(false);
+    const handleValidationComplete = async (result) => {
+        setValidationResult(result);
+        
+        // If validation passed, proceed to AI analysis
+        if (result.status === 'accepted') {
+            setCurrentStep('ai_processing');
+            setIsProcessing(true);
+
+            try {
+                // Simulate AI analysis
+                const analysis = await analyzeImage(capturedPhoto, location);
+                setAiAnalysis(analysis);
+                setCurrentStep('ai_results');
+            } catch (error) {
+                console.error('AI Analysis failed:', error);
+                // Fallback to manual form
+                setCurrentStep('manual');
+            } finally {
+                setIsProcessing(false);
+            }
         }
     };
 
@@ -109,6 +121,17 @@ const ReportIssuePage = () => {
             <CameraCapture
                 onCapture={handlePhotoCapture}
                 onClose={() => navigate('/dashboard')}
+            />
+        );
+    }
+
+    // Validation Step
+    if (currentStep === 'validation' && capturedPhoto) {
+        return (
+            <ImageValidationStep
+                photoData={capturedPhoto}
+                onValidationComplete={handleValidationComplete}
+                onRetake={() => setCurrentStep('camera')}
             />
         );
     }

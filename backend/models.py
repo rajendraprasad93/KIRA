@@ -138,3 +138,26 @@ class AnalyzeResponse(BaseModel):
     success: bool
     data: AnalysisData
 
+# Image Validation Models
+class EXIFData(BaseModel):
+    has_gps: bool
+    location_valid: bool
+    timestamp: Optional[str] = None
+    distance_km: Optional[float] = None
+    camera_make: Optional[str] = None
+    camera_model: Optional[str] = None
+
+class HashMatch(BaseModel):
+    is_duplicate: bool
+    similarity_score: float
+    original_issue_id: Optional[str] = None
+
+class ImageValidationResult(BaseModel):
+    status: str  # "accepted" | "rejected"
+    reason_codes: List[str] = []
+    ai_generated_score: float
+    exif_status: EXIFData
+    hash_match: HashMatch
+    confidence_score: float
+    message: Optional[str] = None
+
