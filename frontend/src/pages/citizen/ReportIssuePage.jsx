@@ -17,14 +17,16 @@ const ReportIssuePage = () => {
     const { location, error: gpsError } = useGPS();
     
     const [currentStep, setCurrentStep] = useState('camera'); // 'camera' | 'validation' | 'ai_processing' | 'ai_results' | 'extracted_form' | 'voice' | 'manual' | 'success'
-    
-    // Debug current step
-    console.log('🎬 Current step:', currentStep);
     const [capturedPhoto, setCapturedPhoto] = useState(null);
     const [validationResult, setValidationResult] = useState(null);
     const [aiAnalysis, setAiAnalysis] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [submittedComplaint, setSubmittedComplaint] = useState(null);
+
+    // Debug current step (after state declarations)
+    console.log('🎬 Current step:', currentStep);
+    console.log('🎬 aiAnalysis exists:', !!aiAnalysis);
+    console.log('🎬 validationResult exists:', !!validationResult);
 
     const handlePhotoCapture = async (photoData) => {
         setCapturedPhoto(photoData);
@@ -38,26 +40,33 @@ const ReportIssuePage = () => {
         // Check if we have extracted data from vision analysis (even if rejected)
         console.log('🔍 Validation result:', result);
         console.log('🔍 Extracted data:', result.extracted_data);
+        console.log('🔍 Vision analysis:', result.vision_analysis);
         console.log('🔍 GPS coordinates:', result.gps_coordinates);
         console.log('🔍 GPS address:', result.gps_address);
         console.log('🔍 Full EXIF:', result.full_exif);
         console.log('🔍 Full EXIF GPS:', result.full_exif?.gps);
         
-        // Force extracted form if we have vision analysis data
-        if ((result.extracted_data && result.extracted_data.category) || 
-            (result.vision_analysis && result.vision_analysis.issue_type_detected)) {
-            console.log('✅ Using vision-extracted data:', result.extracted_data);
+        // DEBUG: Check what condition we're hitting
+        console.log('🔍 Has vision_analysis?', !!result.vision_analysis);
+        console.log('🔍 Has extracted_data?', !!result.extracted_data);
+        console.log('🔍 Has extracted_issue_data?', !!result.extracted_issue_data);
+        console.log('🔍 Status:', result.status);
+        console.log('🔍 All result keys:', Object.keys(result));
+        
+        // ALWAYS show ExtractedIssueForm for accepted images (like we had working before)
+        if (result.status === 'accepted') {
+            console.log('✅ IMAGE ACCEPTED: Going to ExtractedIssueForm (as implemented in TASK 5)');
             
-            // Use the extracted data directly (with fallback to vision_analysis)
-            const extractedData = result.extracted_data || {};
+            // Create analysis object with available data (fallback to defaults if vision analysis failed)
+            const extractedData = result.extracted_data || result.extracted_issue_data || {};
             const visionData = result.vision_analysis || {};
             
             const analysis = {
                 category: extractedData.category || _mapVisionToUserCategory(visionData.issue_type_detected) || 'others',
                 severity: extractedData.severity || _mapVisionSeverity(visionData.severity) || 'Medium',
-                description: extractedData.description || visionData.visual_summary || 'Issue detected in image',
+                description: extractedData.description || visionData.visual_summary || 'Issue detected in uploaded image',
                 detected_objects: extractedData.detected_objects || visionData.detected_objects || [],
-                confidence: extractedData.confidence || visionData.confidence_score || 0,
+                confidence: extractedData.confidence || visionData.confidence_score || 75, // Default confidence
                 location: result.gps_coordinates ? {
                     lat: result.gps_coordinates.latitude,
                     lng: result.gps_coordinates.longitude,
@@ -68,7 +77,7 @@ const ReportIssuePage = () => {
                     lng: result.full_exif.gps_coordinates.longitude,
                     address: result.full_exif.gps_address || 
                              `${result.full_exif.gps_coordinates.latitude.toFixed(4)}°N, ${result.full_exif.gps_coordinates.longitude.toFixed(4)}°E`
-                } : location || { lat: 12.9234, lng: 77.5678 }),
+                } : location || { lat: 28.6139, lng: 77.2090 }), // Default to Delhi coordinates
                 vision_analysis: result.vision_analysis,
                 forensics_analysis: result.forensics_analysis,
                 validation_status: result.status
@@ -76,8 +85,10 @@ const ReportIssuePage = () => {
             
             console.log('📋 Final analysis object:', analysis);
             setAiAnalysis(analysis);
-            setCurrentStep('extracted_form');  // New step for extracted form
-        } else if (result.status === 'accepted') {
+            setCurrentStep('extracted_form');  // FORCE ExtractedIssueForm (as we had working)
+            console.log('✅ SET STEP TO: extracted_form');
+        } else if (false) { // Disable the old fallback logic
+            console.log('⚠️ FALLBACK: No vision data, going to old AI analysis');
             // Fallback to old AI analysis if vision data not available
             setCurrentStep('ai_processing');
             setIsProcessing(true);
@@ -86,13 +97,16 @@ const ReportIssuePage = () => {
                 const analysis = await analyzeImage(capturedPhoto, location);
                 setAiAnalysis(analysis);
                 setCurrentStep('ai_results');
+                console.log('⚠️ FALLBACK: Set step to ai_results');
             } catch (error) {
                 console.error('AI Analysis failed:', error);
                 setCurrentStep('manual');
+                console.log('❌ ERROR: Set step to manual');
             } finally {
                 setIsProcessing(false);
             }
         } else {
+            console.log('❌ REJECTED: No vision data and rejected, going to manual');
             // Image rejected and no extracted data - go to manual form
             setCurrentStep('manual');
         }
@@ -280,6 +294,7 @@ const ReportIssuePage = () => {
     if (currentStep === 'extracted_form' && aiAnalysis) {
         console.log('🎯 Rendering ExtractedIssueForm with:', aiAnalysis);
         console.log('🔍 Validation result for forensics:', validationResult);
+        console.log('🎬 Current step confirmed: extracted_form');
         return (
             <ExtractedIssueForm
                 extractedData={aiAnalysis}

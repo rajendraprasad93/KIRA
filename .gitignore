@@ -95,20 +95,38 @@ backend/INSTALL_DEPENDENCIES.md
 test_result.md
 contracts.md
 
-# Test files
+# Test files (but keep essential working files)
 backend/test_*.py
 tests/
+
+# IMPORTANT: Keep these working files in git
+# !backend/.env - working configuration with API keys  
+# !backend/.env.working - backup of working configuration
+# !backend/services/vision_service.py - working auto-fill logic
+# !frontend/src/components/ReportIssue/ExtractedIssueForm.jsx - working form
+# !frontend/src/pages/citizen/ReportIssuePage.jsx - working flow
+
+# Force include critical working files
+!backend/.env.working
 
 # Upload directories (contains user uploaded images)
 backend/uploads/
 frontend/public/uploads/
 
-# Environment files (keep .env.example but ignore actual .env)
-.env
+# Environment files - IMPORTANT: Keep backend/.env for working configuration
+# Only ignore frontend .env files and other sensitive env files
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Keep backend/.env in git since it contains working configuration
+# backend/.env - COMMENTED OUT to preserve working config
 
 # Database files
 *.db

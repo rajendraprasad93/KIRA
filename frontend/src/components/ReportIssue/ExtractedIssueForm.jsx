@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { CheckCircle, Edit3, MapPin, AlertTriangle, Eye, Brain, Shield, Camera, MessageSquare, Monitor, Navigation, Target } from 'lucide-react';
 
 const ExtractedIssueForm = ({ extractedData, visionAnalysis, forensicsAnalysis, onSubmit, onEdit, onRetake }) => {
-    console.log('🎯 ExtractedIssueForm received props:');
+    console.log('🎯 ExtractedIssueForm COMPONENT RENDERING!');
     console.log('  extractedData:', extractedData);
+    console.log('  extractedData.category:', extractedData?.category);
+    console.log('  extractedData.description:', extractedData?.description);
     console.log('  visionAnalysis:', visionAnalysis);
     console.log('  forensicsAnalysis:', forensicsAnalysis);
     console.log('  forensicsAnalysis.source_type:', forensicsAnalysis?.source_type);
@@ -325,10 +327,16 @@ const ExtractedIssueForm = ({ extractedData, visionAnalysis, forensicsAnalysis, 
 
     // Initialize smart defaults on component mount
     React.useEffect(() => {
+        console.log('🤖 Auto-fill useEffect triggered with extractedData:', extractedData);
+        
         const smartAreaType = getSmartAffectedAreaType();
         const smartVisibility = getSmartVisibilityFlags();
         
+        console.log('🤖 Smart area type:', smartAreaType);
+        console.log('🤖 Smart visibility:', smartVisibility);
+        
         if (smartAreaType) {
+            console.log('🤖 Setting area type to:', smartAreaType);
             setFormData(prev => ({ ...prev, affectedAreaType: smartAreaType }));
         }
         
@@ -339,69 +347,158 @@ const ExtractedIssueForm = ({ extractedData, visionAnalysis, forensicsAnalysis, 
             confirmedLatitude: extractedData?.location?.lat?.toString() || '',
             confirmedLongitude: extractedData?.location?.lng?.toString() || ''
         }));
+        
+        console.log('🤖 Auto-fill completed');
     }, [extractedData]);
 
     return (
         <div style={{ 
             minHeight: '100vh', 
-            backgroundColor: '#F3F4F6', 
+            backgroundColor: '#F5F7FA', // Government background
             padding: '1rem'
         }}>
+            {/* Government Header Banner */}
+            <div style={{
+                backgroundColor: '#1F4E78', // Government Blue
+                color: 'white',
+                padding: '0.75rem 0',
+                marginBottom: '1rem',
+                borderBottom: '3px solid #F77F00' // Government Orange accent
+            }}>
+                <div style={{ 
+                    maxWidth: '600px', 
+                    margin: '0 auto',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    padding: '0 1rem'
+                }}>
+                    <div style={{
+                        width: '40px',
+                        height: '40px',
+                        backgroundColor: '#F77F00',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <CheckCircle className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                        <h1 style={{ 
+                            fontSize: '1.125rem', 
+                            fontWeight: '600', 
+                            margin: 0,
+                            color: 'white'
+                        }}>
+                            Municipal Corporation of Delhi
+                        </h1>
+                        <p style={{ 
+                            fontSize: '0.875rem', 
+                            margin: 0,
+                            opacity: 0.9
+                        }}>
+                            Citizen Grievance Portal • AI Analysis Complete
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <div style={{ 
                 maxWidth: '600px', 
                 margin: '0 auto',
                 backgroundColor: 'white',
-                borderRadius: '1rem',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                borderRadius: '0.5rem', // Less rounded for government look
+                boxShadow: '0 4px 12px rgba(31, 78, 120, 0.1)', // Government blue shadow
+                border: '1px solid #E3EEF7',
                 overflow: 'hidden'
             }}>
-                {/* Header */}
+                {/* Status Header */}
                 <div style={{
-                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                    padding: '2rem',
+                    background: 'linear-gradient(135deg, #1F4E78 0%, #153456 100%)', // Government blue gradient
+                    padding: '1.5rem',
                     textAlign: 'center',
-                    color: 'white'
+                    color: 'white',
+                    borderBottom: '3px solid #F77F00' // Orange accent
                 }}>
-                    <CheckCircle className="w-12 h-12 mx-auto mb-3" />
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
-                        ✨ AI Analysis Complete!
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        backgroundColor: 'rgba(247, 127, 0, 0.2)',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '2rem',
+                        marginBottom: '1rem'
+                    }}>
+                        <CheckCircle className="w-5 h-5" />
+                        <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>
+                            VERIFIED & ANALYZED
+                        </span>
+                    </div>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+                        Issue Report Ready for Submission
                     </h2>
-                    <p style={{ opacity: 0.9, fontSize: '0.875rem' }}>
-                        Confidence: {extractedData?.confidence || 0}% • Review and submit
+                    <p style={{ opacity: 0.9, fontSize: '0.8125rem' }}>
+                        AI Confidence: {extractedData?.confidence || 0}% • Please review and confirm details
                     </p>
                 </div>
 
-                {/* Vision Analysis Summary */}
+                {/* AI Analysis Summary - Government Style */}
                 {visionAnalysis && (
                     <div style={{ 
                         padding: '1.5rem', 
-                        backgroundColor: '#EFF6FF',
-                        borderBottom: '1px solid #E5E7EB'
+                        backgroundColor: '#E3EEF7', // Government blue light
+                        borderBottom: '1px solid #C7DDEE',
+                        borderLeft: '4px solid #1F4E78' // Government blue accent
                     }}>
                         <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem' }}>
-                            <Brain className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div style={{
+                                backgroundColor: '#1F4E78',
+                                borderRadius: '0.375rem',
+                                padding: '0.5rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <Brain className="w-4 h-4 text-white" />
+                            </div>
                             <div style={{ flex: 1 }}>
                                 <h3 style={{ 
                                     fontSize: '0.875rem', 
                                     fontWeight: '600', 
-                                    color: '#1E40AF',
-                                    margin: '0 0 0.5rem 0'
+                                    color: '#1B3A4B', // Government text color
+                                    margin: '0 0 0.5rem 0',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.025em'
                                 }}>
-                                    AI Vision Analysis
+                                    AI ANALYSIS REPORT
                                 </h3>
                                 <p style={{ 
                                     fontSize: '0.8125rem', 
-                                    color: '#1E3A8A',
+                                    color: '#1F4E78',
                                     margin: '0 0 0.75rem 0',
-                                    lineHeight: '1.4'
+                                    lineHeight: '1.5',
+                                    fontWeight: '500'
                                 }}>
                                     {visionAnalysis.visual_summary}
                                 </p>
                                 {visionAnalysis.detected_objects && visionAnalysis.detected_objects.length > 0 && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <Eye className="w-4 h-4 text-blue-500" />
-                                        <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>
-                                            Detected: {visionAnalysis.detected_objects.join(', ')}
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '0.5rem',
+                                        backgroundColor: 'rgba(247, 127, 0, 0.1)',
+                                        padding: '0.5rem',
+                                        borderRadius: '0.25rem',
+                                        border: '1px solid rgba(247, 127, 0, 0.2)'
+                                    }}>
+                                        <Eye className="w-4 h-4 text-orange-600" />
+                                        <span style={{ 
+                                            fontSize: '0.75rem', 
+                                            color: '#1B3A4B',
+                                            fontWeight: '500'
+                                        }}>
+                                            Objects Detected: {visionAnalysis.detected_objects.join(', ')}
                                         </span>
                                     </div>
                                 )}
@@ -412,27 +509,43 @@ const ExtractedIssueForm = ({ extractedData, visionAnalysis, forensicsAnalysis, 
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} style={{ padding: '1.5rem' }}>
-                    {/* Issue Type */}
+                    {/* Issue Type - Government Style */}
                     <div style={{ marginBottom: '1.5rem' }}>
                         <label style={{ 
                             display: 'block', 
                             fontSize: '0.875rem', 
                             fontWeight: '600', 
-                            color: '#374151',
-                            marginBottom: '0.5rem'
+                            color: '#1B3A4B', // Government text
+                            marginBottom: '0.5rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.025em'
                         }}>
-                            Issue Type
+                            ISSUE CATEGORY
                         </label>
                         <div style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
                             gap: '0.75rem',
-                            padding: '0.75rem',
-                            backgroundColor: '#F9FAFB',
-                            borderRadius: '0.5rem',
-                            border: '1px solid #E5E7EB'
+                            padding: '1rem',
+                            backgroundColor: '#F5F7FA', // Government background
+                            borderRadius: '0.375rem',
+                            border: '2px solid #E3EEF7',
+                            borderLeft: '4px solid #1F4E78' // Government blue accent
                         }}>
-                            <span style={{ fontSize: '1.5rem' }}>{getCategoryIcon(formData.category)}</span>
+                            <div style={{
+                                backgroundColor: '#1F4E78',
+                                borderRadius: '0.5rem',
+                                padding: '0.75rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minWidth: '3rem',
+                                minHeight: '3rem'
+                            }}>
+                                <span style={{ fontSize: '1.5rem', filter: 'brightness(0) invert(1)' }}>
+                                    {getCategoryIcon(formData.category)}
+                                </span>
+                            </div>
                             <div style={{ flex: 1 }}>
                                 {isEditing ? (
                                     <select
@@ -440,35 +553,56 @@ const ExtractedIssueForm = ({ extractedData, visionAnalysis, forensicsAnalysis, 
                                         onChange={(e) => handleInputChange('category', e.target.value)}
                                         style={{
                                             width: '100%',
-                                            padding: '0.5rem',
-                                            border: '1px solid #D1D5DB',
+                                            padding: '0.75rem',
+                                            border: '2px solid #C7DDEE',
                                             borderRadius: '0.375rem',
-                                            fontSize: '0.875rem'
+                                            fontSize: '0.875rem',
+                                            backgroundColor: 'white',
+                                            color: '#1B3A4B',
+                                            fontWeight: '500'
                                         }}
                                     >
-                                        <option value="garbage">Garbage Issue</option>
-                                        <option value="roads">Road Issue</option>
-                                        <option value="water">Water Issue</option>
-                                        <option value="drainage">Drainage Issue</option>
-                                        <option value="electricity">Electricity Issue</option>
-                                        <option value="infrastructure">Infrastructure Issue</option>
-                                        <option value="others">Other Issue</option>
+                                        <option value="garbage">🗑️ Garbage Issue</option>
+                                        <option value="roads">🛣️ Road Issue</option>
+                                        <option value="water">💧 Water Issue</option>
+                                        <option value="drainage">🚰 Drainage Issue</option>
+                                        <option value="electricity">💡 Electricity Issue</option>
+                                        <option value="infrastructure">🏗️ Infrastructure Issue</option>
+                                        <option value="others">📋 Other Issue</option>
                                     </select>
                                 ) : (
-                                    <span style={{ fontWeight: '500', color: '#111827' }}>
-                                        {getCategoryName(formData.category)}
-                                    </span>
+                                    <div>
+                                        <div style={{ 
+                                            fontWeight: '600', 
+                                            color: '#1B3A4B',
+                                            fontSize: '1rem',
+                                            marginBottom: '0.25rem'
+                                        }}>
+                                            {getCategoryName(formData.category)}
+                                        </div>
+                                        <div style={{ 
+                                            fontSize: '0.75rem', 
+                                            color: '#1F4E78',
+                                            fontWeight: '500'
+                                        }}>
+                                            AI Detected Category
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setIsEditing(!isEditing)}
                                 style={{
-                                    padding: '0.25rem',
-                                    backgroundColor: 'transparent',
+                                    padding: '0.5rem',
+                                    backgroundColor: '#F77F00', // Government orange
                                     border: 'none',
+                                    borderRadius: '0.375rem',
                                     cursor: 'pointer',
-                                    color: '#6B7280'
+                                    color: 'white',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
                                 }}
                             >
                                 <Edit3 className="w-4 h-4" />
@@ -476,30 +610,39 @@ const ExtractedIssueForm = ({ extractedData, visionAnalysis, forensicsAnalysis, 
                         </div>
                     </div>
 
-                    {/* Severity */}
+                    {/* Severity Level - Government Style */}
                     <div style={{ marginBottom: '1.5rem' }}>
                         <label style={{ 
                             display: 'block', 
                             fontSize: '0.875rem', 
                             fontWeight: '600', 
-                            color: '#374151',
-                            marginBottom: '0.5rem'
+                            color: '#1B3A4B',
+                            marginBottom: '0.5rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.025em'
                         }}>
-                            Severity Level
+                            PRIORITY LEVEL
                         </label>
                         <div style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
                             gap: '0.75rem',
-                            padding: '0.75rem',
+                            padding: '1rem',
                             backgroundColor: getSeverityColor(formData.severity).bg,
-                            borderRadius: '0.5rem',
-                            border: `1px solid ${getSeverityColor(formData.severity).border}`
+                            borderRadius: '0.375rem',
+                            border: `2px solid ${getSeverityColor(formData.severity).border}`,
+                            borderLeft: `4px solid ${getSeverityColor(formData.severity).color}`
                         }}>
-                            <AlertTriangle 
-                                className="w-5 h-5" 
-                                style={{ color: getSeverityColor(formData.severity).color }}
-                            />
+                            <div style={{
+                                backgroundColor: getSeverityColor(formData.severity).color,
+                                borderRadius: '0.5rem',
+                                padding: '0.75rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <AlertTriangle className="w-5 h-5 text-white" />
+                            </div>
                             <div style={{ flex: 1 }}>
                                 {isEditing ? (
                                     <select
@@ -507,53 +650,99 @@ const ExtractedIssueForm = ({ extractedData, visionAnalysis, forensicsAnalysis, 
                                         onChange={(e) => handleInputChange('severity', e.target.value)}
                                         style={{
                                             width: '100%',
-                                            padding: '0.5rem',
-                                            border: '1px solid #D1D5DB',
+                                            padding: '0.75rem',
+                                            border: '2px solid #C7DDEE',
                                             borderRadius: '0.375rem',
-                                            fontSize: '0.875rem'
+                                            fontSize: '0.875rem',
+                                            backgroundColor: 'white',
+                                            color: '#1B3A4B',
+                                            fontWeight: '500'
                                         }}
                                     >
-                                        <option value="Low">Low Priority</option>
-                                        <option value="Medium">Medium Priority</option>
-                                        <option value="High">High Priority</option>
+                                        <option value="Low">🟢 Low Priority</option>
+                                        <option value="Medium">🟡 Medium Priority</option>
+                                        <option value="High">🔴 High Priority</option>
                                     </select>
                                 ) : (
-                                    <span style={{ 
-                                        fontWeight: '500', 
-                                        color: getSeverityColor(formData.severity).color 
-                                    }}>
-                                        {formData.severity} Priority
-                                    </span>
+                                    <div>
+                                        <div style={{ 
+                                            fontWeight: '600', 
+                                            color: getSeverityColor(formData.severity).color,
+                                            fontSize: '1rem',
+                                            marginBottom: '0.25rem'
+                                        }}>
+                                            {formData.severity.toUpperCase()} PRIORITY
+                                        </div>
+                                        <div style={{ 
+                                            fontSize: '0.75rem', 
+                                            color: '#1F4E78',
+                                            fontWeight: '500'
+                                        }}>
+                                            AI Assessed Priority Level
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    {/* Description */}
+                    {/* Description - Government Style */}
                     <div style={{ marginBottom: '1.5rem' }}>
                         <label style={{ 
                             display: 'block', 
                             fontSize: '0.875rem', 
                             fontWeight: '600', 
-                            color: '#374151',
-                            marginBottom: '0.5rem'
+                            color: '#1B3A4B',
+                            marginBottom: '0.5rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.025em'
                         }}>
-                            Description
+                            ISSUE DESCRIPTION
                         </label>
-                        <textarea
-                            value={formData.description}
-                            onChange={(e) => handleInputChange('description', e.target.value)}
-                            placeholder="Describe the issue in detail..."
-                            rows={4}
-                            style={{
-                                width: '100%',
-                                padding: '0.75rem',
-                                border: '1px solid #D1D5DB',
-                                borderRadius: '0.5rem',
-                                fontSize: '0.875rem',
-                                resize: 'vertical'
-                            }}
-                        />
+                        <div style={{
+                            border: '2px solid #E3EEF7',
+                            borderRadius: '0.375rem',
+                            borderLeft: '4px solid #1F4E78'
+                        }}>
+                            <div style={{
+                                backgroundColor: '#E3EEF7',
+                                padding: '0.5rem 0.75rem',
+                                borderBottom: '1px solid #C7DDEE',
+                                fontSize: '0.75rem',
+                                color: '#1F4E78',
+                                fontWeight: '600',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.025em'
+                            }}>
+                                AI Generated Description
+                            </div>
+                            <textarea
+                                value={formData.description}
+                                onChange={(e) => handleInputChange('description', e.target.value)}
+                                placeholder="Describe the issue in detail..."
+                                rows={4}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem',
+                                    border: 'none',
+                                    borderRadius: '0 0 0.375rem 0.375rem',
+                                    fontSize: '0.875rem',
+                                    resize: 'vertical',
+                                    backgroundColor: 'white',
+                                    color: '#1B3A4B',
+                                    lineHeight: '1.5',
+                                    fontFamily: 'inherit'
+                                }}
+                            />
+                        </div>
+                        <div style={{ 
+                            fontSize: '0.75rem', 
+                            color: '#1F4E78',
+                            marginTop: '0.25rem',
+                            fontWeight: '500'
+                        }}>
+                            You can edit this AI-generated description if needed
+                        </div>
                     </div>
 
                     {/* Location */}
@@ -743,14 +932,22 @@ const ExtractedIssueForm = ({ extractedData, visionAnalysis, forensicsAnalysis, 
                         
                         <div style={{ 
                             padding: '1rem',
-                            backgroundColor: '#FEF3C7',
-                            borderRadius: '0.5rem',
-                            border: '1px solid #FDE68A',
+                            backgroundColor: '#FFF4E6', // Government orange light
+                            borderRadius: '0.375rem',
+                            border: '2px solid #FDC8A7',
+                            borderLeft: '4px solid #F77F00', // Government orange
                             marginBottom: '0.75rem'
                         }}>
-                            <div style={{ fontSize: '0.75rem', color: '#92400E', marginBottom: '0.75rem' }}>
-                                <strong>⚠️ Critical:</strong> Confirm the exact coordinates where this issue exists. 
-                                Municipal workers will use these coordinates to locate and fix the problem.
+                            <div style={{ 
+                                fontSize: '0.75rem', 
+                                color: '#8B4C00', 
+                                marginBottom: '0.75rem',
+                                fontWeight: '600',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.025em'
+                            }}>
+                                ⚠️ CRITICAL REQUIREMENT: Confirm the exact coordinates where this issue exists. 
+                                Municipal field workers will use these coordinates to locate and resolve the problem.
                             </div>
                             
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
@@ -767,11 +964,14 @@ const ExtractedIssueForm = ({ extractedData, visionAnalysis, forensicsAnalysis, 
                                         required
                                         style={{
                                             width: '100%',
-                                            padding: '0.5rem',
-                                            border: '1px solid #D1D5DB',
+                                            padding: '0.75rem',
+                                            border: '2px solid #C7DDEE',
                                             borderRadius: '0.375rem',
                                             fontSize: '0.875rem',
-                                            fontFamily: 'monospace'
+                                            fontFamily: 'monospace',
+                                            backgroundColor: 'white',
+                                            color: '#1B3A4B',
+                                            fontWeight: '600'
                                         }}
                                     />
                                 </div>
@@ -788,11 +988,14 @@ const ExtractedIssueForm = ({ extractedData, visionAnalysis, forensicsAnalysis, 
                                         required
                                         style={{
                                             width: '100%',
-                                            padding: '0.5rem',
-                                            border: '1px solid #D1D5DB',
+                                            padding: '0.75rem',
+                                            border: '2px solid #C7DDEE',
                                             borderRadius: '0.375rem',
                                             fontSize: '0.875rem',
-                                            fontFamily: 'monospace'
+                                            fontFamily: 'monospace',
+                                            backgroundColor: 'white',
+                                            color: '#1B3A4B',
+                                            fontWeight: '600'
                                         }}
                                     />
                                 </div>
@@ -838,10 +1041,12 @@ const ExtractedIssueForm = ({ extractedData, visionAnalysis, forensicsAnalysis, 
                             style={{
                                 width: '100%',
                                 padding: '0.75rem',
-                                border: '1px solid #D1D5DB',
-                                borderRadius: '0.5rem',
+                                border: '2px solid #C7DDEE',
+                                borderRadius: '0.375rem',
                                 fontSize: '0.875rem',
-                                backgroundColor: formData.affectedAreaType ? '#F0F9FF' : 'white'
+                                backgroundColor: formData.affectedAreaType ? '#E3EEF7' : 'white',
+                                color: '#1B3A4B',
+                                fontWeight: '500'
                             }}
                         >
                             <option value="">Select affected area type...</option>
@@ -1164,62 +1369,116 @@ const ExtractedIssueForm = ({ extractedData, visionAnalysis, forensicsAnalysis, 
                         </div>
                     </div>
 
-                    {/* Actions */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {/* Actions - Government Style */}
+                    <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '0.75rem',
+                        padding: '1.5rem',
+                        backgroundColor: '#F5F7FA',
+                        borderTop: '2px solid #E3EEF7',
+                        margin: '0 -1.5rem -1.5rem -1.5rem'
+                    }}>
                         <button
                             type="submit"
                             style={{
                                 width: '100%',
-                                padding: '1rem',
-                                backgroundColor: '#10B981',
+                                padding: '1rem 1.5rem',
+                                background: 'linear-gradient(135deg, #1F4E78 0%, #153456 100%)', // Government blue gradient
                                 color: 'white',
-                                border: 'none',
-                                borderRadius: '0.5rem',
+                                border: '2px solid #1F4E78',
+                                borderRadius: '0.375rem',
                                 fontWeight: '600',
                                 fontSize: '1rem',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                gap: '0.5rem'
+                                gap: '0.75rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.025em',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 4px 12px rgba(31, 78, 120, 0.3)'
+                            }}
+                            onMouseOver={(e) => {
+                                e.target.style.transform = 'translateY(-2px)';
+                                e.target.style.boxShadow = '0 6px 16px rgba(31, 78, 120, 0.4)';
+                            }}
+                            onMouseOut={(e) => {
+                                e.target.style.transform = 'translateY(0)';
+                                e.target.style.boxShadow = '0 4px 12px rgba(31, 78, 120, 0.3)';
                             }}
                         >
                             <CheckCircle className="w-5 h-5" />
-                            Submit Issue Report
+                            SUBMIT OFFICIAL COMPLAINT
                         </button>
 
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
                             <button
                                 type="button"
                                 onClick={onEdit}
                                 style={{
                                     flex: 1,
-                                    padding: '0.75rem',
-                                    backgroundColor: '#F3F4F6',
-                                    color: '#374151',
-                                    border: '1px solid #D1D5DB',
+                                    padding: '0.875rem',
+                                    backgroundColor: 'white',
+                                    color: '#1F4E78',
+                                    border: '2px solid #1F4E78',
                                     borderRadius: '0.375rem',
-                                    fontWeight: '500',
-                                    cursor: 'pointer'
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    fontSize: '0.875rem',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.025em',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseOver={(e) => {
+                                    e.target.style.backgroundColor = '#1F4E78';
+                                    e.target.style.color = 'white';
+                                }}
+                                onMouseOut={(e) => {
+                                    e.target.style.backgroundColor = 'white';
+                                    e.target.style.color = '#1F4E78';
                                 }}
                             >
-                                🔧 Edit Manually
+                                <Edit3 className="w-4 h-4" />
+                                EDIT DETAILS
                             </button>
                             <button
                                 type="button"
                                 onClick={onRetake}
                                 style={{
                                     flex: 1,
-                                    padding: '0.75rem',
-                                    backgroundColor: '#F3F4F6',
-                                    color: '#374151',
-                                    border: '1px solid #D1D5DB',
+                                    padding: '0.875rem',
+                                    backgroundColor: 'white',
+                                    color: '#F77F00',
+                                    border: '2px solid #F77F00',
                                     borderRadius: '0.375rem',
-                                    fontWeight: '500',
-                                    cursor: 'pointer'
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    fontSize: '0.875rem',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.025em',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseOver={(e) => {
+                                    e.target.style.backgroundColor = '#F77F00';
+                                    e.target.style.color = 'white';
+                                }}
+                                onMouseOut={(e) => {
+                                    e.target.style.backgroundColor = 'white';
+                                    e.target.style.color = '#F77F00';
                                 }}
                             >
-                                📷 Retake Photo
+                                <Camera className="w-4 h-4" />
+                                RETAKE PHOTO
                             </button>
                         </div>
                     </div>

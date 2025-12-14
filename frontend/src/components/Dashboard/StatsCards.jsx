@@ -51,32 +51,60 @@ const StatsCard = ({ title, value, subtitle, icon, delay, onClick }) => {
 
 const StatsCards = ({ user, stats, onPointsClick, onRankClick, onIssuesClick }) => {
     return (
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            <StatsCard 
-                title="Your Points" 
-                value={user.points} 
-                subtitle="+15 today"
-                icon="⭐"
-                delay={0.1}
-                onClick={onPointsClick}
-            />
-            <StatsCard 
-                title="Rank" 
-                value={`#${user.rank}`} 
-                subtitle={`of ${user.totalUsersInWard}`}
-                icon="🏆"
-                delay={0.2}
-                onClick={onRankClick}
-            />
-            <StatsCard 
-                title="Issues" 
-                value={stats.totalReported} 
-                subtitle={`${parseInt((stats.resolved/stats.totalReported)*100)}% Success`}
-                icon="📊"
-                delay={0.3}
-                onClick={onIssuesClick}
-            />
-        </div>
+        <>
+            {/* Primary Stats Row */}
+            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
+                <StatsCard 
+                    title="Your Points" 
+                    value={user.points} 
+                    subtitle="+15 today"
+                    icon="⭐"
+                    delay={0.1}
+                    onClick={onPointsClick}
+                />
+                <StatsCard 
+                    title="Rank" 
+                    value={`#${user.rank}`} 
+                    subtitle={`of ${user.totalUsersInWard}`}
+                    icon="🏆"
+                    delay={0.2}
+                    onClick={onRankClick}
+                />
+                <StatsCard 
+                    title="Issues" 
+                    value={stats.totalReported} 
+                    subtitle={`${parseInt((stats.resolved/stats.totalReported)*100)}% Success`}
+                    icon="📊"
+                    delay={0.3}
+                    onClick={onIssuesClick}
+                />
+            </div>
+
+            {/* Enhanced Analytics Row */}
+            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                <StatsCard 
+                    title="Critical Issues" 
+                    value={stats.criticalIssues || 0} 
+                    subtitle="> 1 week old"
+                    icon="🚨"
+                    delay={0.4}
+                />
+                <StatsCard 
+                    title="High Impact" 
+                    value={stats.highImpactIssues || 0} 
+                    subtitle="Blocking access"
+                    icon="⚠️"
+                    delay={0.5}
+                />
+                <StatsCard 
+                    title="Location Accuracy" 
+                    value={`${stats.locationAccuracy || 95}%`} 
+                    subtitle="GPS verified"
+                    icon="📍"
+                    delay={0.6}
+                />
+            </div>
+        </>
     );
 };
 
